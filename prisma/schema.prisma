@@ -12,6 +12,7 @@ model Product {
   id            String   @id @default(cuid())
   slug          String   @unique
   coverUrl      String?  // URL immagine copertina PNG
+  templateId    String   @default("lumio") // lumio | h612 | horizon
   stripePriceId String?  // ID prezzo Stripe (per ogni valuta)
   price         Int      @default(0) // in centesimi
   currency      String   @default("eur")

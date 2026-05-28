@@ -21,24 +21,57 @@ export default function HomePage() {
           href="/demo"
           className="rounded-lg border border-gray-300 px-6 py-3 transition hover:bg-gray-50"
         >
-          Demo Pubblica
+          Demo Templates
         </Link>
       </div>
 
-      <div className="mt-8 grid max-w-3xl grid-cols-1 gap-6 text-left md:grid-cols-3">
-        <div className="rounded-lg border p-4">
+      <div className="mt-8 grid max-w-4xl grid-cols-1 gap-6 text-left md:grid-cols-3">
+        <div className="rounded-xl border p-5">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-pink-100 text-xl">☀️</div>
+          <h3 className="font-semibold">Lumio</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Minimalismo + Glassmorphism, ivory calda, gradienti sunset
+          </p>
+          <Link href="/demo/lumio" className="mt-3 inline-block text-sm text-gray-900 underline">
+            Vedi Demo →
+          </Link>
+        </div>
+        <div className="rounded-xl border p-5">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-xl">🌑</div>
+          <h3 className="font-semibold">Obsidian Scholar</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Dark monochrome, tonal layering, serif + sans, liquid orbs
+          </p>
+          <Link href="/demo/h612" className="mt-3 inline-block text-sm text-gray-900 underline">
+            Vedi Demo →
+          </Link>
+        </div>
+        <div className="rounded-xl border p-5">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-orange-100 text-xl">🌅</div>
+          <h3 className="font-semibold">Horizon</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Airy minimalism, glassmorphism, gradienti atmosferici, cursor glow
+          </p>
+          <Link href="/demo/horizon" className="mt-3 inline-block text-sm text-gray-900 underline">
+            Vedi Demo →
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-4 grid max-w-4xl grid-cols-1 gap-4 text-left md:grid-cols-3">
+        <div className="rounded-xl border border-dashed p-4">
           <h3 className="font-semibold">1. Inserisci</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Carica il PNG, scrivi i testi in italiano, aggiungi i link YouTube
+            Scegli un template, carica il PNG, scrivi i testi in italiano
           </p>
         </div>
-        <div className="rounded-lg border p-4">
-          <h3 className="font-semibold">2. Traduci</h3>
+        <div className="rounded-xl border border-dashed p-4">
+          <h3 className="font-semibold">2. Modifica con AI</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Clicca &quot;Traduci con AI&quot; — il cervellone genera 20 lingue in automatico
+            L&apos;AI riscrive i testi, li traduce in 20 lingue, li salva nel DB
           </p>
         </div>
-        <div className="rounded-lg border p-4">
+        <div className="rounded-xl border border-dashed p-4">
           <h3 className="font-semibold">3. Pubblica</h3>
           <p className="mt-1 text-sm text-gray-500">
             Il funnel è online, lo Stripe è collegato, le vendite partono da solo
