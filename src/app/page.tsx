@@ -12,6 +12,12 @@ export default function HomePage() {
 
       <div className="flex gap-4">
         <Link
+          href="/dashboard"
+          className="rounded-lg bg-gradient-to-r from-accent-primary to-accent-secondary px-6 py-3 text-white transition hover:opacity-90 shadow-lg"
+        >
+          Il Mio Corso
+        </Link>
+        <Link
           href="/admin"
           className="rounded-lg bg-gray-900 px-6 py-3 text-white transition hover:bg-gray-700"
         >

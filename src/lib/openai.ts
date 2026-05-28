@@ -1,10 +1,17 @@
 import OpenAI from "openai";
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error("Missing OPENAI_API_KEY");
-}
+let _openai: OpenAI | null = null;
 
-export const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export function getOpenAI(): OpenAI {
+  if (!_openai) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Missing OPENAI_API_KEY");
+    }
+    _openai = new OpenAI({ apiKey });
+  }
+  return _openai;
+}
 
 // ─── Lingue supportate dal Cervellone ────────────────────────
 export const SUPPORTED_LOCALES = [
@@ -36,7 +43,7 @@ Lingue target: ${targetLocales.join(", ")}
 
 Rispondi SOLO con il JSON valido, senza markdown.`;
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     response_format: { type: "json_object" },

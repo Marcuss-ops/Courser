@@ -1,0 +1,44 @@
+import { TemplateId } from "@/components/funnel";
+
+export interface ProductMetric {
+  id: string;
+  slug: string;
+  title: string;
+  template: TemplateId;
+  status: "published" | "draft" | "archived";
+  locales: string[];
+  sales: number;
+  revenue: number;
+  conversion: string;
+}
+
+export interface DashboardStats {
+  totalRevenue: number;
+  totalRevenueTrend: string;
+  netSales: number;
+  netSalesTrend: string;
+  activeFunnels: number;
+  activeFunnelsTrend: string;
+  averageCR: string;
+  averageCRTrend: string;
+}
+
+export const DASHBOARD_DATA = {
+  stats: {
+    totalRevenue: 0,
+    totalRevenueTrend: "0%",
+    netSales: 0,
+    netSalesTrend: "0%",
+    activeFunnels: 0,
+    activeFunnelsTrend: "0",
+    averageCR: "0%",
+    averageCRTrend: "0%",
+  } as DashboardStats,
+  
+  products: [] as ProductMetric[],
+
+  trafficSources: [
+    { label: "YouTube Ads", value: 0, color: "bg-red-600" },
+    { label: "Instagram", value: 0, color: "bg-purple-600" },
+  ]
+};

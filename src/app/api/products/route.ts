@@ -20,6 +20,7 @@ export async function GET() {
       currency: p.currency,
       status: p.status,
       coverUrl: p.coverUrl,
+      templateId: p.templateId,
       lessonsCount: p._count.lessons,
       locales: Array.from(new Set(p.translations.map((t: { locale: string }) => t.locale))),
       createdAt: p.createdAt,
@@ -39,7 +40,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { slug, price, coverUrl, translations, lessons, sourceLocale } = body;
+    const { slug, price, coverUrl, translations, lessons, sourceLocale, templateId, lemonVariantId } = body;
 
     if (!slug || !translations) {
       return NextResponse.json(
@@ -56,6 +57,8 @@ export async function POST(request: NextRequest) {
           price: price || 0,
           coverUrl: coverUrl || null,
           status: "draft",
+          templateId: templateId || "lumio",
+          lemonVariantId: lemonVariantId || null,
         },
       });
 

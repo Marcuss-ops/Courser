@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
@@ -49,6 +49,36 @@ export async function POST(request: NextRequest) {
           status: "completed",
         },
       });
+
+      // Generate magic link for the user so they can access the course
+      const customerEmail = session.customer_details?.email || session.metadata?.email;
+      if (customerEmail) {
+        const { randomBytes } = await import("crypto");
+        const token = randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+
+        await prisma.magicLink.create({
+          data: {
+            email: customerEmail,
+            token,
+            productId,
+            expiresAt,
+          },
+        });
+
+        const magicUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login/verify?token=${token}`;
+        console.log(`Magic link generated for ${customerEmail}: ${magicUrl}`);
+
+        // Track purchase analytics event
+        await prisma.analyticEvent.create({
+          data: {
+            productId,
+            eventType: "purchase",
+            metadata: JSON.stringify({ amount: session.amount_total, currency: session.currency }),
+            userId,
+          },
+        }).catch(() => {});
+      }
 
       console.log(`Order created for user ${userId}, product ${productId}`);
     } catch (error) {

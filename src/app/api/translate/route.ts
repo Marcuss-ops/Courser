@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openai, SUPPORTED_LOCALES, type Locale } from "@/lib/openai";
+import { getOpenAI, SUPPORTED_LOCALES, type Locale } from "@/lib/openai";
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,7 +47,7 @@ Rispondi con un JSON con questa struttura:
   ...
 }`;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },

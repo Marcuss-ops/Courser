@@ -1,0 +1,162 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { CheckCircle2, Loader2, Lock } from "lucide-react";
+
+interface LessonProgressButtonProps {
+  lessonId: string;
+  productSlug: string;
+  isAuthenticated: boolean;
+}
+
+export function LessonProgressButton({
+  lessonId,
+  productSlug,
+  isAuthenticated,
+}: LessonProgressButtonProps) {
+  const [completed, setCompleted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [progressPercent, setProgressPercent] = useState<number | null>(null);
+  const [totalLessons, setTotalLessons] = useState(0);
+  const [completedLessons, setCompletedLessons] = useState(0);
+
+  const fetchProgress = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/progress?productId=${productSlug}`);
+      if (res.ok) {
+        const data = await res.json();
+        const lessonIds = data.progress.map((p: { lessonId: string; completed: boolean }) => p.lessonId);
+        const total = data.lessons?.length || 0;
+        const completedCount = data.progress.filter((p: { completed: boolean }) => p.completed).length;
+
+        setCompleted(lessonIds.includes(lessonId));
+        setTotalLessons(total);
+        setCompletedLessons(completedCount);
+        if (total > 0) {
+          setProgressPercent(Math.round((completedCount / total) * 100));
+        }
+      }
+    } catch {
+      // Not authenticated or network error
+    }
+  }, [lessonId, productSlug]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchProgress();
+    }
+  }, [isAuthenticated, fetchProgress]);
+
+  const toggleComplete = async () => {
+    if (!isAuthenticated) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lessonId,
+          completed: !completed,
+        }),
+      });
+      if (res.ok) {
+        setCompleted(!completed);
+        // Also track analytics
+        if (!completed) {
+          fetch("/api/analytics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventType: "lesson_complete",
+              productId: productSlug,
+              metadata: { lessonId },
+            }),
+          }).catch(() => {});
+        }
+        await fetchProgress(); // Refresh progress
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <button
+        disabled
+        className="px-6 py-3 premium-glass rounded-2xl text-sm font-bold text-zinc-500 flex items-center gap-2 cursor-not-allowed opacity-60"
+      >
+        <Lock className="w-4 h-4" />
+        Accedi per Segnare Completata
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-4">
+      <button
+        onClick={toggleComplete}
+        disabled={loading}
+        className={`px-6 py-3 premium-glass rounded-2xl text-sm font-bold transition-all flex items-center gap-2 ${
+          completed
+            ? "text-accent-tertiary border border-accent-tertiary/30"
+            : "text-white hover:bg-white/5"
+        }`}
+      >
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : completed ? (
+          <CheckCircle2 className="w-4 h-4 text-accent-tertiary" />
+        ) : (
+          <CheckCircle2 className="w-4 h-4" />
+        )}
+        {completed ? "Completata ✓" : "Segna come Completata"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Progress Bar Component ────────────────────────────────
+
+interface ProgressBarProps {
+  productSlug: string;
+  totalLessons: number;
+  isAuthenticated: boolean;
+}
+
+export function ProgressBar({
+  productSlug,
+  totalLessons,
+  isAuthenticated,
+}: ProgressBarProps) {
+  const [percent, setPercent] = useState(0);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetch(`/api/progress?productId=${productSlug}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const completed = data.progress.filter((p: { completed: boolean }) => p.completed).length;
+        if (totalLessons > 0) {
+          setPercent(Math.round((completed / totalLessons) * 100));
+        }
+      })
+      .catch(() => {});
+  }, [productSlug, totalLessons, isAuthenticated]);
+
+  if (!isAuthenticated) return null;
+
+  return (
+    <div className="flex items-center gap-2 mt-3">
+      <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+        <div
+          className="bg-accent-primary h-full shadow-[0_0_10px_#4d8eff] transition-all duration-500"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="text-[10px] font-black text-accent-primary">{percent}%</span>
+    </div>
+  );
+}

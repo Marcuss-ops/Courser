@@ -43,7 +43,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { slug, price, coverUrl, status, translations, lessons, sourceLocale } = body;
+    const { slug, price, coverUrl, status, templateId, lemonVariantId, translations, lessons, sourceLocale } = body;
 
     const product = await prisma.$transaction(async (tx) => {
       // Aggiorna il prodotto
@@ -54,6 +54,8 @@ export async function PUT(
           ...(price !== undefined && { price }),
           ...(coverUrl !== undefined && { coverUrl }),
           ...(status && { status }),
+          ...(templateId && { templateId }),
+          ...(lemonVariantId !== undefined && { lemonVariantId }),
         },
       });
 

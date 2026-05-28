@@ -4,6 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TemplateSelector from "@/components/admin/template-selector";
 import type { TemplateId } from "@/components/funnel";
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Sparkles, 
+  Languages, 
+  Save, 
+  Image as ImageIcon,
+  Plus,
+  Trash2
+} from "lucide-react";
 
 const FUNNEL_SECTIONS = [
   { key: "titolo", label: "Titolo del Prodotto", placeholder: "Es: Corso Completo di Fotografia" },
@@ -112,262 +122,329 @@ export default function NewProductPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="px-8 py-8">
       {/* Step Indicator */}
-      <div className="mb-8 flex items-center gap-3">
+      <div className="mx-auto max-w-4xl mb-12 flex items-center justify-center gap-4">
         {[
           { key: "template", label: "1. Template" },
           { key: "content", label: "2. Contenuti" },
           { key: "ai", label: "3. AI & Traduzioni" },
-        ].map((s) => (
-          <div
-            key={s.key}
-            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${
-              step === s.key
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-500"
-            }`}
-          >
-            {s.label}
+        ].map((s, idx) => (
+          <div key={s.key} className="flex items-center">
+            <div
+              className={`flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all ${
+                step === s.key
+                  ? "bg-accent-blue text-white shadow-lg shadow-accent-blue/20"
+                  : "bg-zinc-800/50 text-zinc-500 border border-zinc-700"
+              }`}
+            >
+              {s.label}
+            </div>
+            {idx < 2 && <div className="w-8 h-px bg-zinc-800 mx-2" />}
           </div>
         ))}
       </div>
 
-      {/* STEP 1: Template Selection */}
-      {step === "template" && (
-        <div>
-          <h1 className="text-2xl font-bold">Scegli il Template</h1>
-          <p className="mt-1 text-gray-500">
-            Seleziona un design white-label per il tuo prodotto
-          </p>
-          <TemplateSelector
-            onSelect={handleTemplateSelect}
-            onClose={() => router.push("/admin")}
-          />
-        </div>
-      )}
-
-      {/* STEP 2: Content */}
-      {step === "content" && (
-        <div>
-          <h1 className="text-2xl font-bold">Contenuti del Funnel</h1>
-          <p className="mt-1 text-gray-500">
-            Template: <strong>{selectedTemplate}</strong> — Slug: <strong>/{slug}</strong>
-          </p>
-
-          {/* Copertina */}
-          <div className="mt-6 rounded-xl border p-6">
-            <h2 className="mb-4 font-semibold">Copertina</h2>
-            <div className="flex items-start gap-6">
-              <div className="flex h-48 w-32 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed bg-gray-50">
-                {coverPreview ? (
-                  <img src={coverPreview} alt="Copertina" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xs text-gray-400">PNG 2:3</span>
-                )}
-              </div>
-              <div>
-                <input type="file" accept="image/*" onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setCoverPreview(ev.target?.result as string);
-                    reader.readAsDataURL(file);
-                  }
-                }} className="text-sm" />
-                <p className="mt-2 text-xs text-gray-400">600×900px consigliato</p>
-              </div>
+      <div className="mx-auto max-w-4xl">
+        {/* STEP 1: Template Selection */}
+        {step === "template" && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-white">Scegli il Template</h1>
+              <p className="mt-2 text-zinc-500">
+                Seleziona un design white-label per il tuo prodotto
+              </p>
             </div>
-          </div>
-
-          {/* Sezioni del Funnel */}
-          <div className="mt-6 rounded-xl border p-6">
-            <h2 className="mb-4 font-semibold">
-              Testi della Landing Page <span className="text-sm font-normal text-gray-400">(in italiano)</span>
-            </h2>
-            <div className="flex flex-col gap-4">
-              {FUNNEL_SECTIONS.map((section) => (
-                <div key={section.key}>
-                  <label className="block text-sm font-medium">{section.label}</label>
-                  <textarea
-                    value={texts[section.key] || ""}
-                    onChange={(e) => setTexts((prev) => ({ ...prev, [section.key]: e.target.value }))}
-                    rows={section.key === "storia" || section.key === "recensioni" ? 4 : 2}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                    placeholder={section.placeholder}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Lezioni */}
-          <div className="mt-6 rounded-xl border p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold">Lezioni (Video YouTube)</h2>
-              <button
-                onClick={() => setLessons((prev) => [...prev, { title: "", videoUrl: "" }])}
-                className="text-sm text-gray-500 underline"
-              >
-                + Aggiungi lezione
-              </button>
-            </div>
-            <div className="flex flex-col gap-3">
-              {lessons.map((lesson, i) => (
-                <div key={i} className="flex gap-3">
-                  <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-medium">
-                    {i + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={lesson.title}
-                    onChange={(e) => { const n = [...lessons]; n[i].title = e.target.value; setLessons(n); }}
-                    placeholder="Titolo lezione"
-                    className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    value={lesson.videoUrl}
-                    onChange={(e) => { const n = [...lessons]; n[i].videoUrl = e.target.value; setLessons(n); }}
-                    placeholder="URL YouTube"
-                    className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Configurazione */}
-          <div className="mt-6 rounded-xl border p-6">
-            <h2 className="mb-4 font-semibold">Configurazione</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium">Prezzo (centesimi)</label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-400">{parseInt(price) / 100} €</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="mt-6 flex gap-3">
-            <button
-              onClick={() => setStep("ai")}
-              className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Continua → Modifica con AI
-            </button>
-            <button
-              onClick={handleTranslate}
-              disabled={isTranslating}
-              className="rounded-lg border px-6 py-3 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-            >
-              Traduci in 5 Lingue
-            </button>
-            <button
-              onClick={handleSave}
-              className="rounded-lg border px-6 py-3 text-sm font-medium hover:bg-gray-50"
-            >
-              Salva Bozza
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: AI Modification */}
-      {step === "ai" && (
-        <div>
-          <h1 className="text-2xl font-bold">Modifica con AI</h1>
-          <p className="mt-1 text-gray-500">
-            Scrivi cosa vuoi cambiare e l&apos;AI riscriverà i testi del funnel
-          </p>
-
-          {/* AI Prompt */}
-          <div className="mt-6 rounded-xl border p-6">
-            <h2 className="mb-4 font-semibold">Cosa vuoi modificare?</h2>
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              rows={4}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              placeholder="Esempi:
-- Rendi il testo più urgente e persuasivo
-- Aggiungi un tono più informale e amichevole
-- Trasforma la storia in un racconto emozionante
-- Riscrivi le recensioni in modo più naturale
-- Cambia il CTA per renderlo più irresistibile"
+            <TemplateSelector
+              onSelect={handleTemplateSelect}
+              onClose={() => router.push("/admin")}
             />
-            <button
-              onClick={handleAiModify}
-              disabled={isTranslating || !aiPrompt.trim()}
-              className="mt-4 rounded-lg bg-purple-600 px-6 py-3 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
-            >
-              {isTranslating ? "L&apos;AI sta lavorando..." : "✨ Modifica con AI"}
-            </button>
           </div>
+        )}
 
-          {/* AI Result */}
-          {aiResult && (
-            <div className="mt-6 rounded-xl border bg-gray-50 p-6">
-              <h2 className="mb-4 font-semibold">Risultato AI</h2>
-              <pre className="overflow-auto text-sm text-gray-700">{aiResult}</pre>
-              <button
-                onClick={() => {
-                  // Applica le modifiche ai testi
-                  try {
-                    const parsed = JSON.parse(aiResult);
-                    if (parsed.translations?.it) {
-                      setTexts((prev) => ({ ...prev, ...parsed.translations.it }));
-                    }
-                    alert("Modifiche applicate!");
-                  } catch {
-                    // Ignora
-                  }
-                }}
-                className="mt-4 rounded-lg bg-green-600 px-6 py-3 text-sm font-medium text-white hover:bg-green-700"
+        {/* STEP 2: Content */}
+        {step === "content" && (
+          <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white">Contenuti del Funnel</h1>
+                <p className="mt-2 text-zinc-500">
+                  Template: <span className="text-accent-blue font-medium">{selectedTemplate}</span> — Slug: <span className="text-zinc-300 font-mono">/{slug}</span>
+                </p>
+              </div>
+              <button 
+                onClick={() => setStep("template")}
+                className="p-2 text-zinc-400 hover:text-white transition-colors"
               >
-                Applica Modifiche
+                <ArrowLeft className="w-6 h-6" />
               </button>
             </div>
-          )}
 
-          {/* Current texts preview */}
-          <div className="mt-6 rounded-xl border p-6">
-            <h2 className="mb-4 font-semibold">Anteprima Testi Attuali</h2>
-            <div className="flex flex-col gap-3">
-              {FUNNEL_SECTIONS.map((section) => (
-                <div key={section.key}>
-                  <p className="text-xs font-medium text-gray-400">{section.label}</p>
-                  <p className="mt-1 text-sm text-gray-700 line-clamp-2">
-                    {texts[section.key] || <span className="italic text-gray-300">Non compilato</span>}
-                  </p>
+            {/* Copertina */}
+            <section className="glass-card p-8 rounded-3xl space-y-6">
+              <div className="flex items-center gap-3 text-white font-semibold">
+                <ImageIcon className="w-5 h-5 text-accent-blue" />
+                <h2>Immagine di Copertina</h2>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-8">
+                <div className="flex h-64 w-44 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 transition hover:border-zinc-500 group relative">
+                  {coverPreview ? (
+                    <>
+                      <img src={coverPreview} alt="Copertina" className="h-full w-full object-cover" />
+                      <button 
+                        onClick={() => setCoverPreview(null)}
+                        className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-center px-4">
+                      <Plus className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                      <span className="text-xs text-zinc-500">PNG/JPG 2:3 (600x900)</span>
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => setCoverPreview(ev.target?.result as string);
+                        reader.readAsDataURL(file);
+                      }
+                    }} 
+                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                  />
                 </div>
-              ))}
+                <div className="flex-1 space-y-4 text-center sm:text-left">
+                  <p className="text-sm text-zinc-400">
+                    Questa immagine verrà mostrata nella parte superiore del funnel e nelle anteprime social.
+                  </p>
+                  <button className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700 transition-colors">
+                    Sfoglia file...
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* Sezioni del Funnel */}
+            <section className="glass-card p-8 rounded-3xl space-y-6">
+              <div className="flex items-center gap-3 text-white font-semibold">
+                <Plus className="w-5 h-5 text-accent-blue" />
+                <h2>Testi della Landing Page</h2>
+              </div>
+              <div className="space-y-6">
+                {FUNNEL_SECTIONS.map((section) => (
+                  <div key={section.key} className="space-y-2">
+                    <label className="block text-sm font-medium text-zinc-400 uppercase tracking-wider text-[10px]">{section.label}</label>
+                    <textarea
+                      value={texts[section.key] || ""}
+                      onChange={(e) => setTexts((prev) => ({ ...prev, [section.key]: e.target.value }))}
+                      rows={section.key === "storia" || section.key === "recensioni" ? 4 : 2}
+                      className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-accent-blue/50 focus:border-accent-blue/50 transition-all placeholder:text-zinc-700"
+                      placeholder={section.placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Lezioni */}
+            <section className="glass-card p-8 rounded-3xl space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-white font-semibold">
+                  <ArrowRight className="w-5 h-5 text-accent-blue" />
+                  <h2>Lezioni Video</h2>
+                </div>
+                <button
+                  onClick={() => setLessons((prev) => [...prev, { title: "", videoUrl: "" }])}
+                  className="text-sm text-accent-blue hover:underline flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" /> Aggiungi lezione
+                </button>
+              </div>
+              <div className="space-y-4">
+                {lessons.map((lesson, i) => (
+                  <div key={i} className="flex gap-4 items-start bg-zinc-900/30 p-4 rounded-2xl border border-zinc-800/50">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-sm font-bold text-zinc-400 border border-zinc-700">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        value={lesson.title}
+                        onChange={(e) => { const n = [...lessons]; n[i].title = e.target.value; setLessons(n); }}
+                        placeholder="Titolo lezione"
+                        className="bg-transparent border-b border-zinc-800 px-1 py-2 text-sm text-white focus:outline-none focus:border-accent-blue transition-colors"
+                      />
+                      <input
+                        type="text"
+                        value={lesson.videoUrl}
+                        onChange={(e) => { const n = [...lessons]; n[i].videoUrl = e.target.value; setLessons(n); }}
+                        placeholder="URL YouTube"
+                        className="bg-transparent border-b border-zinc-800 px-1 py-2 text-sm text-white focus:outline-none focus:border-accent-blue transition-colors"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => setLessons(prev => prev.filter((_, idx) => idx !== i))}
+                      className="p-2 text-zinc-600 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Prezzo */}
+            <section className="glass-card p-8 rounded-3xl flex items-center justify-between">
+              <div className="space-y-1">
+                <h2 className="text-white font-semibold">Prezzo del Prodotto</h2>
+                <p className="text-xs text-zinc-500">Inposta il costo finale in Euro</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">€</span>
+                  <input
+                    type="number"
+                    value={parseInt(price) / 100}
+                    onChange={(e) => setPrice(String(parseFloat(e.target.value) * 100))}
+                    className="bg-zinc-900/50 border border-zinc-800 rounded-xl pl-8 pr-4 py-3 text-white font-bold w-32 focus:outline-none focus:ring-1 focus:ring-accent-blue/50"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <button
+                onClick={() => setStep("ai")}
+                className="flex-1 gradient-btn rounded-2xl py-4 text-sm font-bold text-white shadow-xl flex items-center justify-center gap-2"
+              >
+                Continua all&apos;AI <ArrowRight className="w-4 h-4" />
+              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={handleTranslate}
+                  disabled={isTranslating}
+                  className="px-6 py-4 bg-zinc-800 text-zinc-300 rounded-2xl text-sm font-semibold border border-zinc-700 hover:bg-zinc-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Languages className="w-4 h-4" /> Traduci
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-6 py-4 bg-zinc-800 text-zinc-300 rounded-2xl text-sm font-semibold border border-zinc-700 hover:bg-zinc-700 transition-colors flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" /> Salva Bozza
+                </button>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Actions */}
-          <div className="mt-6 flex gap-3">
-            <button
-              onClick={() => setStep("content")}
-              className="rounded-lg border px-6 py-3 text-sm font-medium hover:bg-gray-50"
-            >
-              ← Indietro
-            </button>
-            <button
-              onClick={handleSave}
-              className="rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-700"
-            >
-              Salva e Pubblica
-            </button>
+        {/* STEP 3: AI Modification */}
+        {step === "ai" && (
+          <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white">Modifica con AI</h1>
+                <p className="mt-2 text-zinc-500">
+                  L&apos;AI riscriverà i tuoi testi in base alle tue istruzioni
+                </p>
+              </div>
+              <button 
+                onClick={() => setStep("content")}
+                className="p-2 text-zinc-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* AI Prompt */}
+            <section className="glass-card p-8 rounded-3xl space-y-6">
+              <div className="flex items-center gap-3 text-white font-semibold">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                <h2>Cosa vuoi migliorare?</h2>
+              </div>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                rows={5}
+                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all placeholder:text-zinc-700 shadow-inner"
+                placeholder="Esempi:
+- Rendi il testo più urgente e persuasivo
+- Aggiungi un tono amichevole e informale
+- Riscrivi la storia per renderla più emozionante..."
+              />
+              <button
+                onClick={handleAiModify}
+                disabled={isTranslating || !aiPrompt.trim()}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl text-sm font-bold text-white shadow-lg shadow-purple-600/20 hover:brightness-110 transition-all disabled:opacity-50"
+              >
+                {isTranslating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    L&apos;AI sta scrivendo...
+                  </span>
+                ) : "✨ Applica Magia AI"}
+              </button>
+            </section>
+
+            {/* AI Result */}
+            {aiResult && (
+              <section className="glass-card p-8 rounded-3xl border-green-500/20 bg-green-500/5 space-y-6">
+                <h2 className="text-white font-semibold flex items-center gap-2">
+                  <Check className="w-5 h-5 text-green-500" /> Risultato Ottimizzato
+                </h2>
+                <div className="bg-zinc-900/80 p-6 rounded-2xl border border-zinc-800 max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono">{aiResult}</pre>
+                </div>
+                <button
+                  onClick={() => {
+                    try {
+                      const parsed = JSON.parse(aiResult);
+                      if (parsed.translations?.it) {
+                        setTexts((prev) => ({ ...prev, ...parsed.translations.it }));
+                      }
+                      alert("Modifiche applicate con successo!");
+                    } catch {
+                      alert("Errore nell'applicazione delle modifiche");
+                    }
+                  }}
+                  className="w-full py-3 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-500 transition-colors shadow-lg shadow-green-600/10"
+                >
+                  Conferma e Applica Testi
+                </button>
+              </section>
+            )}
+
+            <div className="flex gap-4 pt-4">
+               <button
+                onClick={() => setStep("content")}
+                className="px-8 py-4 bg-zinc-800 text-zinc-300 rounded-2xl text-sm font-semibold border border-zinc-700 hover:bg-zinc-700 transition-colors"
+              >
+                Torna ai Contenuti
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex-1 gradient-btn rounded-2xl py-4 text-sm font-bold text-white shadow-xl"
+              >
+                Pubblica Prodotto
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
+  );
+}
+
+function Check({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+    </svg>
   );
 }

@@ -13,7 +13,9 @@ model Product {
   slug          String   @unique
   coverUrl      String?  // URL immagine copertina PNG
   templateId    String   @default("lumio") // lumio | h612 | horizon
-  stripePriceId String?  // ID prezzo Stripe (per ogni valuta)
+  stripePriceId String?  // ID prezzo Stripe (legacy)
+  lemonVariantId String? // ID variante Lemon Squeezy
+  lemonStoreId  String?  // Store ID Lemon Squeezy (opzionale, per override)
   price         Int      @default(0) // in centesimi
   currency      String   @default("eur")
   status        String   @default("draft") // draft | published | archived
@@ -67,7 +69,9 @@ model Order {
   id              String   @id @default(cuid())
   userId          String
   productId       String
-  stripeSessionId String   @unique
+  paymentProvider String   @default("stripe") // stripe | lemonsqueezy
+  stripeSessionId String?  @unique // Stripe session ID (legacy)
+  providerOrderId String?  // Order ID dal provider (Lemon Squeezy order ID)
   amount          Int      // in centesimi
   currency        String
   locale          String?  // lingua al momento dell'acquisto
@@ -76,6 +80,8 @@ model Order {
 
   user    User    @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+
+  @@unique([paymentProvider, providerOrderId])
 }
 
 // ─── Utenti ─────────────────────────────────────────────────
@@ -127,4 +133,40 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ─── Progressi Lezioni ──────────────────────────────────────
+model LessonProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  lessonId    String
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+// ─── Analytics Eventi ───────────────────────────────────────
+model AnalyticEvent {
+  id        String   @id @default(cuid())
+  productId String?
+  eventType String   // pageview | click_buy | checkout_start | purchase | lesson_complete
+  metadata  String?  // JSON string with extra data
+  userId    String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+// ─── Magic Links ────────────────────────────────────────────
+model MagicLink {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  productId String?
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

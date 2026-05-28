@@ -1,10 +1,17 @@
 import Stripe from "stripe";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("Missing STRIPE_SECRET_KEY");
-}
+let _stripe: Stripe | null = null;
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2026-05-27.dahlia",
-  typescript: true,
-});
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error("Missing STRIPE_SECRET_KEY");
+    }
+    _stripe = new Stripe(key, {
+      apiVersion: "2026-05-27.dahlia",
+      typescript: true,
+    });
+  }
+  return _stripe;
+}
