@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Prodotti (Libri / Corsi) ───────────────────────────────
+model Product {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  coverUrl      String?  // URL immagine copertina PNG
+  stripePriceId String?  // ID prezzo Stripe (per ogni valuta)
+  price         Int      @default(0) // in centesimi
+  currency      String   @default("eur")
+  status        String   @default("draft") // draft | published | archived
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  translations  ProductTranslation[]
+  lessons       Lesson[]
+  orders        Order[]
+}
+
+// ─── Traduzioni del Funnel (Problema, Storia, Recensioni, CTA) ─
+model ProductTranslation {
+  id        String  @id @default(cuid())
+  productId String
+  locale    String  // it, en, es, fr, de...
+  section   String  // problema | storia | recensioni | cta | titolo | sottotitolo
+  content   String  // Testo della sezione in quella lingua
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locale, section])
+}
+
+// ─── Lezioni (video YouTube per lingua) ──────────────────────
+model Lesson {
+  id        String   @id @default(cuid())
+  productId String
+  position  Int      // ordine lezione (1, 2, 3...)
+  createdAt DateTime @default(now())
+
+  product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  translations LessonTranslation[]
+}
+
+model LessonTranslation {
+  id          String  @id @default(cuid())
+  lessonId    String
+  locale      String
+  title       String
+  videoUrl    String? // URL YouTube "non in elenco" per quella lingua
+  description String?
+
+  lesson      Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, locale])
+}
+
+// ─── Ordini / Pagamenti ─────────────────────────────────────
+model Order {
+  id              String   @id @default(cuid())
+  userId          String
+  productId       String
+  stripeSessionId String   @unique
+  amount          Int      // in centesimi
+  currency        String
+  locale          String?  // lingua al momento dell'acquisto
+  status          String   @default("pending") // pending | completed | refunded
+  createdAt       DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+// ─── Utenti ─────────────────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  role      String   @default("student") // admin | student
+  createdAt DateTime @default(now())
+
+  orders   Order[]
+  accounts Account[]
+  sessions Session[]
+}
+
+// ─── NextAuth ───────────────────────────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
