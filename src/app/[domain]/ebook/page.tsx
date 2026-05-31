@@ -5,15 +5,14 @@ import {
   BookOpen, 
   Share2, 
   Download, 
-  Search, 
   Bookmark,
   ChevronRight,
-  Maximize2,
   Menu
 } from "lucide-react";
 import { getCourseConfig } from "@/lib/white-label-data";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { SidebarToggleBtn } from "@/components/layout/sidebar-toggle-btn";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export default async function EbookPage({
   params,
@@ -24,7 +23,7 @@ export default async function EbookPage({
 }) {
   const { domain } = await params;
   const { lang } = await searchParams;
-  const data = getCourseConfig(domain);
+  const data = await getCourseConfig(domain);
 
   if (!data) return notFound();
 
@@ -123,7 +122,7 @@ export default async function EbookPage({
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent-secondary/30 to-transparent" />
               
               <div className="prose prose-invert prose-zinc max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: content.ebookContent.replace(/\n/g, '<br/>') }} className="text-zinc-300 leading-[2] font-medium text-lg" />
+                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.ebookContent.replace(/\n/g, '<br/>')) }} className="text-zinc-300 leading-[2] font-medium text-lg" />
               </div>
 
               <div className="mt-20 pt-10 border-t border-white/5 flex justify-between items-center opacity-30">

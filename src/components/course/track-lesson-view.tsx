@@ -1,0 +1,31 @@
+"use client";
+
+import { useEffect } from "react";
+
+interface TrackLessonViewProps {
+  lessonId: string;
+  isAuthenticated: boolean;
+}
+
+/**
+ * Client component that tracks when a user views a lesson.
+ * Updates lastWatchedAt on LessonProgress for "Continue Learning" feature.
+ */
+export function TrackLessonView({ lessonId, isAuthenticated }: TrackLessonViewProps) {
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Debounce: track after 5 seconds (avoid tracking on quick page flips)
+    const timer = setTimeout(() => {
+      fetch("/api/progress/track-watch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId }),
+      }).catch(() => {});
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [lessonId, isAuthenticated]);
+
+  return null;
+}

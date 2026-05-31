@@ -43,7 +43,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { slug, price, coverUrl, status, templateId, lemonVariantId, translations, lessons, sourceLocale } = body;
+    const { slug, price, coverUrl, status, templateId, lemonVariantId, translations, lessons, sourceLocale, translationsByLocale, pricesByCurrency } = body;
 
     const product = await prisma.$transaction(async (tx) => {
       // Aggiorna il prodotto
@@ -56,10 +56,11 @@ export async function PUT(
           ...(status && { status }),
           ...(templateId && { templateId }),
           ...(lemonVariantId !== undefined && { lemonVariantId }),
+          ...(pricesByCurrency !== undefined && { pricesByCurrency: pricesByCurrency ? JSON.stringify(pricesByCurrency) : null }),
         },
       });
 
-      // Aggiorna traduzioni
+      // Aggiorna traduzioni (lingua sorgente)
       if (translations && typeof translations === "object") {
         for (const [section, content] of Object.entries(translations) as [
           string,
@@ -82,6 +83,33 @@ export async function PUT(
                 content,
               },
             });
+          }
+        }
+      }
+
+      // Salva le traduzioni AI per altre lingue
+      if (translationsByLocale && typeof translationsByLocale === "object") {
+        for (const [locale, sections] of Object.entries(translationsByLocale) as [string, Record<string, string>][]) {
+          if (locale === (sourceLocale || "it")) continue;
+          for (const [section, content] of Object.entries(sections)) {
+            if (content && content.trim() !== "") {
+              await tx.productTranslation.upsert({
+                where: {
+                  productId_locale_section: {
+                    productId: id,
+                    locale,
+                    section,
+                  },
+                },
+                update: { content },
+                create: {
+                  productId: id,
+                  locale,
+                  section,
+                  content,
+                },
+              });
+            }
           }
         }
       }
@@ -115,6 +143,14 @@ export async function PUT(
 
       return p;
     });
+
+    // Auto-sync: rigenera config su DB + disco
+    try {
+      const { generateCourseConfig } = await import("@/lib/generate-course-config");
+      await generateCourseConfig(product.slug);
+    } catch (syncError) {
+      console.error("[Auto-sync] Failed to generate config:", syncError);
+    }
 
     return NextResponse.json({ success: true, product });
   } catch (error) {

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { prisma } from "./prisma";
 
 export interface LessonConfig {
   number: number;
@@ -41,16 +42,27 @@ export interface CourseConfig {
   ebookChapters: Array<{ it: string; en: string; page: number }>;
 }
 
-export function getCourseConfig(slug: string): CourseConfig | null {
+export async function getCourseConfig(slug: string): Promise<CourseConfig | null> {
+  // Prova prima da disco (sviluppo locale)
   try {
     const configPath = path.join(process.cwd(), 'public', 'courses', slug, 'config.json');
-    if (!fs.existsSync(configPath)) {
-      return null;
+    if (fs.existsSync(configPath)) {
+      const fileContent = fs.readFileSync(configPath, 'utf8');
+      return JSON.parse(fileContent) as CourseConfig;
     }
-    const fileContent = fs.readFileSync(configPath, 'utf8');
-    return JSON.parse(fileContent) as CourseConfig;
-  } catch (error) {
-    console.error(`Error reading config for ${slug}:`, error);
-    return null;
+  } catch {
+    // Fallback al DB
   }
+
+  // Fallback: leggi da DB (funziona su Vercel)
+  try {
+    const cached = await prisma.courseConfigCache.findUnique({ where: { slug } });
+    if (cached) {
+      return JSON.parse(cached.config) as CourseConfig;
+    }
+  } catch (error) {
+    console.error(`Error reading config from DB for ${slug}:`, error);
+  }
+
+  return null;
 }

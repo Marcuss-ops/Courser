@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { progressSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,7 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { lessonId, completed } = body;
+    const parsed = progressSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid progress data" }, { status: 400 });
+    }
+    const { lessonId, completed } = parsed.data;
     if (!lessonId) return NextResponse.json({ error: "Missing lessonId" }, { status: 400 });
 
     const user = await prisma.user.findUnique({ where: { email: session.user.email } });

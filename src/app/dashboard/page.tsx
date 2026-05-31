@@ -17,7 +17,8 @@ import {
   GraduationCap,
   BarChart3,
   Package,
-  ArrowRight
+  ArrowRight,
+  FileText
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -277,47 +278,126 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* Continue Learning Banner */}
-        {user.orders.length > 0 && (
-          <section className="relative overflow-hidden premium-glass rounded-[2.5rem] border border-white/5">
-            <div className="absolute -left-32 -top-32 w-80 h-80 bg-accent-tertiary/5 rounded-full blur-[100px]" />
-            <div className="absolute -right-32 -bottom-32 w-80 h-80 bg-accent-primary/5 rounded-full blur-[100px]" />
-            
-            <div className="relative p-10 lg:p-16 text-center space-y-6">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 premium-glass rounded-full border border-white/5">
-                <div className="w-2 h-2 rounded-full bg-accent-primary animate-pulse" />
-                <span className="text-[10px] font-black text-accent-primary uppercase tracking-widest">
-                  {completedLessons}/{totalLessons} lezioni completate
-                </span>
-              </div>
-              <h2 className="text-3xl lg:text-4xl font-black text-white text-contrast tracking-tight">
-                Continua il tuo percorso
-              </h2>
-              <p className="text-zinc-500 text-base max-w-lg mx-auto font-medium">
-                La costanza è la chiave del successo. Dedica anche solo 15 minuti al giorno 
-                e vedrai risultati straordinari.
-              </p>
-              <div className="max-w-md mx-auto pt-4">
-                <div className="flex items-center gap-4 mb-2">
-                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Progresso globale</span>
-                  <span className="text-[10px] font-black text-accent-primary">{progressPercent}%</span>
-                </div>
-                <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary rounded-full transition-all duration-1000 shadow-[0_0_20px_rgba(77,142,255,0.3)]"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+        {/* Continue Learning + Certificati */}
+        {user.orders.length > 0 && <ContinueAndCertificatesSection userId={user.id} orders={user.orders.map(o => ({
+    id: o.id,
+    createdAt: o.createdAt,
+    product: {
+      id: o.product.id,
+      slug: o.product.slug,
+      coverUrl: o.product.coverUrl,
+      templateId: o.product.templateId,
+      _count: { lessons: o.product._count.lessons },
+    },
+  }))} />}
       </main>
     </div>
   );
 }
 
 // ─── Sub-components ─────────────────────────────────────────
+
+async function ContinueAndCertificatesSection({
+  userId,
+  orders,
+}: {
+  userId: string;
+  orders: Array<{
+    id: string;
+    product: { id: string; slug: string; coverUrl: string | null; templateId: string; _count: { lessons: number } };
+    createdAt: Date;
+  }>;
+}) {
+  // Trova l'ultima lezione guardata
+  const lastWatch = await prisma.lessonProgress.findFirst({
+    where: { userId, lastWatchedAt: { not: null } },
+    orderBy: { lastWatchedAt: "desc" },
+    include: { lesson: { include: { translations: { take: 1, select: { title: true } }, product: { select: { slug: true } } } } },
+  });
+
+  // Calcola progresso per prodotto
+  const productProgress = await Promise.all(
+    orders.map(async (order) => {
+      const lessonIds = await prisma.lesson.findMany({
+        where: { productId: order.product.id },
+        select: { id: true },
+      });
+      const total = lessonIds.length;
+      const completed = await prisma.lessonProgress.count({
+        where: { userId, lessonId: { in: lessonIds.map(l => l.id) }, completed: true },
+      });
+      return { productId: order.product.id, slug: order.product.slug, total, completed, coverUrl: order.product.coverUrl };
+    })
+  );
+
+  const allCompleted = productProgress.filter(p => p.total > 0 && p.completed >= p.total);
+  const lastLessonTitle = lastWatch?.lesson?.translations?.[0]?.title;
+
+  return (
+    <section className="space-y-8">
+      {/* Continue Learning */}
+      {lastWatch && (
+        <div className="relative overflow-hidden premium-glass rounded-[2.5rem] border border-white/5">
+          <div className="absolute -left-32 -top-32 w-80 h-80 bg-accent-tertiary/5 rounded-full blur-[100px]" />
+          <div className="absolute -right-32 -bottom-32 w-80 h-80 bg-accent-primary/5 rounded-full blur-[100px]" />
+          
+          <div className="relative p-10 lg:p-16 text-center space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 premium-glass rounded-full border border-white/5">
+              <div className="w-2 h-2 rounded-full bg-accent-primary animate-pulse" />
+              <span className="text-[10px] font-black text-accent-primary uppercase tracking-widest">
+                {lastLessonTitle ? `Ultima lezione: ${lastLessonTitle}` : "Continua da dove hai lasciato"}
+              </span>
+            </div>
+            <h2 className="text-3xl lg:text-4xl font-black text-white text-contrast tracking-tight">
+              Continua il tuo percorso
+            </h2>
+            <p className="text-zinc-500 text-base max-w-lg mx-auto font-medium">
+              La costanza è la chiave del successo. Dedica anche solo 15 minuti al giorno e vedrai risultati straordinari.
+            </p>
+            <Link
+              href={`/${lastWatch.lesson.product.slug}/curso/lesson-${lastWatch.lesson.position}?lang=it`}
+              className="inline-flex items-center gap-2 glow-btn px-8 py-4 rounded-2xl text-sm font-bold text-white premium-glass"
+            >
+              <Play className="w-4 h-4" />
+              Riprendi da Dove Hai Lasciato
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Certificati Disponibili */}
+      {allCompleted.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl lg:text-2xl font-black text-white text-contrast tracking-tight flex items-center gap-3">
+            <Award className="w-6 h-6 text-accent-tertiary" />
+            Certificati Disponibili
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {allCompleted.map((p) => (
+              <Link
+                key={p.productId}
+                href={`/api/certificate/${p.productId}`}
+                className="premium-glass p-6 rounded-[1.5rem] border border-white/5 hover:border-accent-tertiary/30 transition-all group flex items-center gap-4"
+              >
+                <div className="w-14 h-14 premium-glass rounded-xl flex items-center justify-center border border-accent-tertiary/20 group-hover:scale-110 transition-transform">
+                  <FileText className="w-6 h-6 text-accent-tertiary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-white capitalize">{p.slug.replace(/-/g, " ")}</h3>
+                  <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-1">
+                    Scarica Certificato
+                  </p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-accent-tertiary transition-colors" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function StatCard({ 
   icon, 

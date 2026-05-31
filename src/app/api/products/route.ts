@@ -18,6 +18,7 @@ export async function GET() {
       slug: p.slug,
       price: p.price,
       currency: p.currency,
+      pricesByCurrency: p.pricesByCurrency,
       status: p.status,
       coverUrl: p.coverUrl,
       templateId: p.templateId,
@@ -40,7 +41,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { slug, price, coverUrl, translations, lessons, sourceLocale, templateId, lemonVariantId } = body;
+    const { slug, price, coverUrl, translations, lessons, sourceLocale, templateId, lemonVariantId, translationsByLocale, pricesByCurrency } = body;
 
     if (!slug || !translations) {
       return NextResponse.json(
@@ -59,10 +60,11 @@ export async function POST(request: NextRequest) {
           status: "draft",
           templateId: templateId || "lumio",
           lemonVariantId: lemonVariantId || null,
+          pricesByCurrency: pricesByCurrency ? JSON.stringify(pricesByCurrency) : null,
         },
       });
 
-      // Salva le traduzioni (solo la lingua sorgente per ora)
+      // Salva le traduzioni (lingua sorgente)
       for (const [section, content] of Object.entries(translations) as [
         string,
         string
@@ -76,6 +78,33 @@ export async function POST(request: NextRequest) {
               content,
             },
           });
+        }
+      }
+
+      // Salva le traduzioni AI per altre lingue
+      if (translationsByLocale && typeof translationsByLocale === "object") {
+        for (const [locale, sections] of Object.entries(translationsByLocale) as [string, Record<string, string>][]) {
+          if (locale === (sourceLocale || "it")) continue; // già salvate sopra
+          for (const [section, content] of Object.entries(sections)) {
+            if (content && content.trim() !== "") {
+              await tx.productTranslation.upsert({
+                where: {
+                  productId_locale_section: {
+                    productId: p.id,
+                    locale,
+                    section,
+                  },
+                },
+                update: { content },
+                create: {
+                  productId: p.id,
+                  locale,
+                  section,
+                  content,
+                },
+              });
+            }
+          }
         }
       }
 
@@ -105,6 +134,14 @@ export async function POST(request: NextRequest) {
 
       return p;
     });
+
+    // Auto-sync: rigenera config su DB + disco
+    try {
+      const { generateCourseConfig } = await import("@/lib/generate-course-config");
+      await generateCourseConfig(slug);
+    } catch (syncError) {
+      console.error("[Auto-sync] Failed to generate config:", syncError);
+    }
 
     return NextResponse.json({ success: true, product });
   } catch (error) {

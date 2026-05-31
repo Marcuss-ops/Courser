@@ -4,6 +4,18 @@ import { prisma } from "./prisma";
 import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
 
+// Warn if NEXTAUTH_SECRET is the default dev value
+if (
+  !process.env.NEXTAUTH_SECRET ||
+  process.env.NEXTAUTH_SECRET === "dev-secret-change-in-production-1234567890" ||
+  process.env.NEXTAUTH_SECRET === "change-me-to-a-random-secret"
+) {
+  console.warn(
+    "⚠️  NEXTAUTH_SECRET non configurato o è quello di default! " +
+      "Generane uno con: openssl rand -base64 32"
+  );
+}
+
 export const authOptions = {
   adapter: PrismaAdapter(prisma) as any,
   providers: [

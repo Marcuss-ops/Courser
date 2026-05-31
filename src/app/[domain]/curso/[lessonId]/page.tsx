@@ -14,6 +14,9 @@ import { getCourseConfig } from "@/lib/white-label-data";
 import { AnalyticsTracker } from "@/components/course/analytics-tracker";
 import { LessonProgressButton, ProgressBar } from "@/components/course/lesson-progress-button";
 import { VideoPaywall } from "@/components/course/video-paywall";
+import { LessonNotes } from "@/components/course/lesson-notes";
+import { LessonAssets } from "@/components/course/lesson-assets";
+import { TrackLessonView } from "@/components/course/track-lesson-view";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { SidebarToggleBtn } from "@/components/layout/sidebar-toggle-btn";
 
@@ -26,7 +29,7 @@ export default async function CoursePage({
 }) {
   const { domain, lessonId } = await params;
   const { lang, token } = await searchParams;
-  const course = getCourseConfig(domain);
+  const course = await getCourseConfig(domain);
 
   if (!course) return notFound();
 
@@ -39,6 +42,7 @@ export default async function CoursePage({
   return (
     <>
       <AnalyticsTracker productSlug={domain} />
+      <TrackLessonView lessonId={currentLesson.id} isAuthenticated={isAuthenticated} />
       
       <div className="flex h-screen bg-[#050505] text-[#e5e2e1] font-hanken overflow-hidden">
         {/* Sidebar Lezioni */}
@@ -161,6 +165,7 @@ export default async function CoursePage({
                   title={currentLesson.titles[currentLang]}
                   productSlug={domain}
                   isAuthenticated={isAuthenticated}
+                  locale={currentLang}
                   previewDuration={120}
                 />
               </div>
@@ -178,10 +183,11 @@ export default async function CoursePage({
                   </div>
 
                   <div className="flex flex-wrap gap-4">
-                    <button className="px-6 py-3 premium-glass rounded-2xl text-sm font-bold text-accent-primary hover:text-white transition-all flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Risorse PDF
-                    </button>
+                    <LessonAssets 
+                      lessonId={currentLesson.id} 
+                      locale={currentLang} 
+                      isAuthenticated={isAuthenticated}
+                    />
                     <LessonProgressButton 
                       lessonId={currentLesson.id} 
                       productSlug={domain} 
@@ -191,19 +197,11 @@ export default async function CoursePage({
                 </div>
 
                 <div className="space-y-6">
-                  <div className="premium-glass p-8 rounded-[2rem] border border-white/5">
-                    <h4 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-6 flex items-center justify-between">
-                      Note Rapide
-                      <Settings className="w-3.5 h-3.5" />
-                    </h4>
-                    <textarea 
-                      placeholder="Prendi appunti durante la lezione..."
-                      className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 text-xs text-white placeholder:text-zinc-700 focus:outline-none focus:ring-1 focus:ring-accent-primary/30 transition-all resize-none h-40"
-                    />
-                    <button className="w-full mt-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-400 transition-all">
-                      Salva Appunti
-                    </button>
-                  </div>
+                  <LessonNotes 
+                    lessonId={currentLesson.id} 
+                    locale={currentLang} 
+                    isAuthenticated={isAuthenticated}
+                  />
                 </div>
               </div>
             </div>

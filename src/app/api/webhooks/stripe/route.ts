@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { sendPurchaseConfirmation } from "@/lib/email";
 import Stripe from "stripe";
 
 export async function POST(request: NextRequest) {
@@ -68,6 +69,17 @@ export async function POST(request: NextRequest) {
 
         const magicUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login/verify?token=${token}`;
         console.log(`Magic link generated for ${customerEmail}: ${magicUrl}`);
+
+        // Send purchase confirmation email
+        const product = await prisma.product.findUnique({ where: { id: productId } });
+        if (product) {
+          const courseUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/${product.slug}/curso/lesson-1?lang=${locale || "it"}&token=${token}`;
+          try {
+            await sendPurchaseConfirmation(customerEmail, product.slug, courseUrl);
+          } catch (emailErr) {
+            console.error("[Stripe] Failed to send purchase confirmation email:", emailErr);
+          }
+        }
 
         // Track purchase analytics event
         await prisma.analyticEvent.create({

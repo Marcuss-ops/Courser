@@ -19,12 +19,14 @@ model Product {
   price         Int      @default(0) // in centesimi
   currency      String   @default("eur")
   status        String   @default("draft") // draft | published | archived
+  pricesByCurrency String? // JSON: { "USD": { "price": 5500, "symbol": "$", "stripePriceId": "...", "lemonVariantId": "..." }, ... }
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  translations  ProductTranslation[]
-  lessons       Lesson[]
-  orders        Order[]
+  translations       ProductTranslation[]
+  lessons            Lesson[]
+  orders             Order[]
+  abandonedCheckouts AbandonedCheckout[]
 }
 
 // ─── Traduzioni del Funnel (Problema, Storia, Recensioni, CTA) ─
@@ -49,6 +51,7 @@ model Lesson {
 
   product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   translations LessonTranslation[]
+  progress     LessonProgress[]
 }
 
 model LessonTranslation {
@@ -144,8 +147,34 @@ model LessonProgress {
   completedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  lastWatchedAt DateTime? // ultima visualizzazione lezione
+
+  lesson Lesson @relation(fields: [lessonId], references: [id])
 
   @@unique([userId, lessonId])
+}
+
+// ─── Appunti Studenti ──────────────────────────────────────
+model LessonNote {
+  id        String   @id @default(cuid())
+  userId    String
+  lessonId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+// ─── Asset Scaricabili (PDF, audio, ecc.) ──────────────────
+model LessonAsset {
+  id        String   @id @default(cuid())
+  lessonId  String
+  type      String   // pdf | audio | resource
+  locale    String   @default("it") // lingua dell'asset
+  fileUrl   String
+  fileName  String?
+  createdAt DateTime @default(now())
 }
 
 // ─── Analytics Eventi ───────────────────────────────────────
@@ -177,6 +206,32 @@ model VisitorSession {
   lastSeenAt  DateTime @default(now())
 
   events      AnalyticEvent[]
+}
+
+// ─── Cache Config (per Vercel — evita scrittura su disco) ───
+model CourseConfigCache {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  config    String   // JSON string del CourseConfig completo
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Checkout abbandonati (per email di recupero) ─────────
+model AbandonedCheckout {
+  id              String   @id @default(cuid())
+  email           String
+  productId       String
+  locale          String   @default("it")
+  paymentProvider String   // stripe | lemonsqueezy
+  checkoutUrl     String?  // URL del checkout esterno
+  status          String   @default("pending") // pending | recovered | expired
+  reminderSentAt  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 // ─── Magic Links ────────────────────────────────────────────

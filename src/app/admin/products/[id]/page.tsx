@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import TemplateSelector from "@/components/admin/template-selector";
+import { ImageUpload } from "@/components/admin/image-upload";
+import { CurrencyPricesSection } from "@/components/admin/currency-prices";
 import type { TemplateId } from "@/components/funnel";
 import {
   ArrowLeft,
@@ -15,7 +17,9 @@ import {
   FileJson,
   CheckCircle,
   Loader2,
-  CreditCard
+  CreditCard,
+  Languages,
+  CheckCircle2
 } from "lucide-react";
 
 const FUNNEL_SECTIONS = [
@@ -46,6 +50,10 @@ export default function EditProductPage() {
   const [lessons, setLessons] = useState<Array<{ id?: string; title: string; videoUrl: string }>>([]);
   const [locale, setLocale] = useState("it");
   const [toast, setToast] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedLocales, setTranslatedLocales] = useState<string[]>([]);
+  const [translationsByLocale, setTranslationsByLocale] = useState<Record<string, Record<string, string>>>({});
+  const [pricesByCurrency, setPricesByCurrency] = useState<Record<string, { price: number; lemonVariantId?: string | null; stripePriceId?: string | null }>>({});
 
   useEffect(() => {
     fetchProduct();
@@ -64,6 +72,13 @@ export default function EditProductPage() {
       setTemplateId(data.templateId || "lumio");
       setLemonVariantId(data.lemonVariantId || "");
       setCoverPreview(data.coverUrl || null);
+
+      // Parse pricesByCurrency
+      if (data.pricesByCurrency) {
+        try {
+          setPricesByCurrency(JSON.parse(data.pricesByCurrency));
+        } catch {}
+      }
 
       // Build texts from translations
       const txts: Record<string, string> = {};
@@ -105,6 +120,8 @@ export default function EditProductPage() {
           templateId,
           lemonVariantId,
           translations: texts,
+          translationsByLocale,
+          pricesByCurrency: Object.keys(pricesByCurrency).length > 0 ? pricesByCurrency : undefined,
           lessons,
           sourceLocale: locale,
         }),
@@ -112,11 +129,37 @@ export default function EditProductPage() {
       if (res.ok) {
         setToast("Salvato!");
         setTimeout(() => setToast(""), 3000);
-      }
-    } catch {
+      }      } catch {
       alert("Errore nel salvataggio");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleTranslateAI() {
+    setIsTranslating(true);
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceLocale: locale,
+          targetLocales: ["en", "es", "fr", "de", "pt"].filter(l => l !== locale),
+          sections: texts,
+        }),
+      });
+      const data = await res.json();
+      if (data.translations) {
+        setTranslationsByLocale(prev => ({ ...prev, ...data.translations }));
+        const locales = Object.keys(data.translations).filter(l => l !== locale);
+        setTranslatedLocales(prev => Array.from(new Set([...prev, ...locales])));
+        setToast(`Tradotto in: ${locales.map(l => l.toUpperCase()).join(", ")}`);
+        setTimeout(() => setToast(""), 4000);
+      }
+    } catch {
+      alert("Errore nella traduzione");
+    } finally {
+      setIsTranslating(false);
     }
   }
 
@@ -209,25 +252,10 @@ export default function EditProductPage() {
             <ImageIcon className="w-4 h-4 text-accent-primary" /> Copertina
           </div>
           <div className="flex items-center gap-6">
-            <div className="relative w-44 h-64 rounded-2xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 overflow-hidden group">
-              {coverPreview ? (
-                <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                  <Plus className="w-8 h-8 mb-2" />
-                  <span className="text-xs">Cover PNG/JPG</span>
-                </div>
-              )}
-              <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) { const r = new FileReader(); r.onload = (ev) => setCoverPreview(ev.target?.result as string); r.readAsDataURL(f); }
-              }} />
-              {coverPreview && (
-                <button onClick={() => setCoverPreview(null)} className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100">
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              )}
-            </div>
+            <ImageUpload
+              value={coverPreview}
+              onChange={(url) => setCoverPreview(url)}
+            />
             <div className="flex-1 space-y-4">
               <div className="flex items-center gap-2">
                 <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="Slug prodotto" className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-accent-primary w-full" />
@@ -259,6 +287,12 @@ export default function EditProductPage() {
                   className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-accent-primary w-full"
                 />
               </div>
+
+              {/* Prezzi per valuta */}
+              <CurrencyPricesSection
+                pricesByCurrency={pricesByCurrency}
+                onChange={setPricesByCurrency}
+              />
             </div>
           </div>
         </section>
@@ -267,15 +301,34 @@ export default function EditProductPage() {
         <section className="glass-card p-6 rounded-3xl border border-white/5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-white font-semibold">Testi Landing</span>
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-zinc-500" />
-              <select value={locale} onChange={(e) => { setLocale(e.target.value); /* In real app: load translations for locale */ }} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white">
-                <option value="it">IT</option>
-                <option value="en">EN</option>
-                <option value="es">ES</option>
-                <option value="fr">FR</option>
-                <option value="de">DE</option>
-              </select>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleTranslateAI}
+                disabled={isTranslating}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-xl text-xs font-medium border border-zinc-700 hover:bg-zinc-700 transition disabled:opacity-50"
+              >
+                {isTranslating ? (
+                  <><Loader2 className="w-3 h-3 animate-spin" /> Traducendo…</>
+                ) : (
+                  <><Languages className="w-3 h-3" /> AI Traduci</>
+                )}
+              </button>
+              {translatedLocales.length > 0 && (
+                <span className="text-[10px] text-green-400 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  {translatedLocales.map(l => l.toUpperCase()).join(", ")}
+                </span>
+              )}
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-zinc-500" />
+                <select value={locale} onChange={(e) => { setLocale(e.target.value); }} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white">
+                  <option value="it">IT</option>
+                  <option value="en">EN</option>
+                  <option value="es">ES</option>
+                  <option value="fr">FR</option>
+                  <option value="de">DE</option>
+                </select>
+              </div>
             </div>
           </div>
           <div className="space-y-4">
@@ -316,3 +369,4 @@ export default function EditProductPage() {
     </div>
   );
 }
+

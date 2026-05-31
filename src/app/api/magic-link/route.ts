@@ -2,13 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
 import { sendMagicLinkEmail } from "@/lib/email";
+import { magicLinkSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, productId } = body;
-
-    if (!email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    const parsed = magicLinkSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Email non valida" }, { status: 400 });
+    }
+    
+    const { email, productId } = parsed.data;
+    
+    if (!email) {
+      return NextResponse.json({ error: "Email non valida" }, { status: 400 });
+    }
 
     // Check if user has order for this product
     let hasAccess = false;

@@ -4,18 +4,53 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { initLS, getStoreId } from "@/lib/lemonsqueezy";
 import { createCheckout } from "@lemonsqueezy/lemonsqueezy.js";
+import { checkoutSchema, validationErrorResponse } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     const body = await request.json();
-    const { productId, locale = "it", channelId } = body;
+    
+    // Validate body with Zod
+    const parsed = checkoutSchema.safeParse(body);
+    if (!parsed.success) {
+      return validationErrorResponse(
+        parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        }))
+      );
+    }
+    const { productId, locale = "it", currency, channelId } = parsed.data;
 
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
+    // ─── Dynamic pricing per currency ───────────────────────────
+    let effectiveLemonVariantId = product.lemonVariantId;
+    let effectiveStripePriceId = product.stripePriceId;
+    let price = product.price;
+
+    if (currency && product.pricesByCurrency) {
+      try {
+        const prices = JSON.parse(product.pricesByCurrency) as Record<string, {
+          price: number;
+          stripePriceId?: string | null;
+          lemonVariantId?: string | null;
+        }>;
+        const currencyPrices = prices[currency.toUpperCase()];
+        if (currencyPrices) {
+          effectiveLemonVariantId = currencyPrices.lemonVariantId || product.lemonVariantId;
+          effectiveStripePriceId = currencyPrices.stripePriceId || product.stripePriceId;
+          price = currencyPrices.price;
+        }
+      } catch {
+        // Parse error, fallback to defaults
+      }
+    }
+
     // Validate at least one payment provider is configured
-    if (!product.lemonVariantId && !product.stripePriceId) {
+    if (!effectiveLemonVariantId && !effectiveStripePriceId) {
       return NextResponse.json(
         { error: "Nessun metodo di pagamento configurato per questo prodotto. Aggiungi un Lemon Variant ID o uno Stripe Price ID." },
         { status: 400 }
@@ -24,8 +59,32 @@ export async function POST(request: NextRequest) {
 
     const userEmail = session?.user?.email || body.email || "";
 
+    // ─── Track abandoned checkout ────────────────────────────
+    if (userEmail) {
+      try {
+        // Evita duplicati: controlla se esiste già un checkout pending per stesso utente+prodotto
+        const existing = await prisma.abandonedCheckout.findFirst({
+          where: { email: userEmail, productId: product.id, status: "pending" },
+        });
+        if (!existing) {
+          await prisma.abandonedCheckout.create({
+            data: {
+              email: userEmail,
+              productId: product.id,
+              locale,
+              paymentProvider: effectiveLemonVariantId ? "lemonsqueezy" : "stripe",
+              status: "pending",
+            },
+          });
+        }
+      } catch (trackErr) {
+        // Non bloccare il checkout se il tracking fallisce
+        console.error("Failed to track abandoned checkout:", trackErr);
+      }
+    }
+
     // ─── Priority 1: Lemon Squeezy (if lemonVariantId is set) ──
-    if (product.lemonVariantId) {
+    if (effectiveLemonVariantId) {
       const storeId = product.lemonStoreId || getStoreId();
       if (!storeId) {
         return NextResponse.json(
@@ -36,7 +95,7 @@ export async function POST(request: NextRequest) {
 
       initLS();
 
-      const variantId = parseInt(product.lemonVariantId, 10);
+      const variantId = parseInt(effectiveLemonVariantId, 10);
       if (isNaN(variantId)) {
         return NextResponse.json({ error: "Invalid lemonVariantId" }, { status: 500 });
       }
@@ -80,7 +139,7 @@ export async function POST(request: NextRequest) {
       mode: "payment",
       line_items: [
         {
-          price: product.stripePriceId || undefined,
+          price: effectiveStripePriceId || undefined,
           quantity: 1,
         },
       ],

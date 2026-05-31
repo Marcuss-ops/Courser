@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { prisma } from "./prisma";
 
+const IS_VERCEL = process.env.VERCEL === "1";
+
 export interface CourseConfig {
   slug: string;
   productId: string;
@@ -107,18 +109,37 @@ export async function generateCourseConfig(slug: string) {
     checkoutUrl: "#",
     author: "Brand",
     price: product.price / 100,
+    prices: product.pricesByCurrency ? (() => {
+      const raw = JSON.parse(product.pricesByCurrency) as Record<string, { price: number }>;
+      return Object.fromEntries(
+        Object.entries(raw).map(([code, p]) => [code, {
+          amount: p.price / 100,
+          currency: code,
+          symbol: code === "EUR" ? "€" : code === "USD" ? "$" : code === "GBP" ? "£" : code,
+        }])
+      );
+    })() : undefined,
     lemonVariantId: product.lemonVariantId || undefined,
     languages,
     lessons,
     ebookChapters: [],
   };
 
-  // Write config.json to disk
-  const courseDir = path.join(process.cwd(), "public", "courses", slug);
-  if (!fs.existsSync(courseDir)) {
-    fs.mkdirSync(courseDir, { recursive: true });
+  // Salva su disco (solo se non siamo su Vercel)
+  if (!IS_VERCEL) {
+    const courseDir = path.join(process.cwd(), "public", "courses", slug);
+    if (!fs.existsSync(courseDir)) {
+      fs.mkdirSync(courseDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(courseDir, "config.json"), JSON.stringify(config, null, 2), "utf8");
   }
-  fs.writeFileSync(path.join(courseDir, "config.json"), JSON.stringify(config, null, 2), "utf8");
+
+  // Salva su DB come cache (funziona ovunque, incluso Vercel)
+  await prisma.courseConfigCache.upsert({
+    where: { slug },
+    update: { config: JSON.stringify(config), version: { increment: 1 } },
+    create: { slug, config: JSON.stringify(config) },
+  });
 
   return config;
 }

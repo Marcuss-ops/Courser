@@ -1,21 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import { 
   LayoutDashboard, 
   Plus, 
   Settings, 
-  Video,
-  FileText,
   User,
   ChevronDown,
   Package,
+  ShoppingCart,
   Bell,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Users
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -24,6 +25,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isProductsOpen, setIsProductsOpen] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -98,7 +100,21 @@ export default function AdminLayout({
             </div>
           </div>
 
-          <div className="pt-6 border-t border-white/5 mt-6">
+          <div className="pt-6 border-t border-white/5 mt-6 space-y-2">
+            <SidebarLink 
+              href="/admin/orders" 
+              icon={<ShoppingCart className="w-5 h-5" />} 
+              label="Ordini" 
+              active={pathname === "/admin/orders"} 
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <SidebarLink 
+              href="/admin/users" 
+              icon={<Users className="w-5 h-5" />} 
+              label="Clienti" 
+              active={pathname === "/admin/users"} 
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
             <SidebarLink 
               href="/admin/products/new" 
               icon={<Plus className="w-5 h-5" />} 
@@ -138,7 +154,14 @@ export default function AdminLayout({
                 >
                   <Settings className="w-4 h-4" /> Account Settings
                 </Link>
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors">
+                <button
+                  onClick={async () => {
+                    setIsProfileOpen(false);
+                    await signOut({ redirect: false });
+                    router.push("/login");
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                >
                   <LogOut className="w-4 h-4" /> Logout
                 </button>
               </div>

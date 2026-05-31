@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { analyticsEventSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { eventType, productId, metadata, userId, sessionId } = body;
+    const parsed = analyticsEventSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid event data" }, { status: 400 });
+    }
+    const { eventType, productId, metadata, userId, sessionId } = parsed.data;
 
     if (!eventType) {
       return NextResponse.json({ error: "Missing eventType" }, { status: 400 });

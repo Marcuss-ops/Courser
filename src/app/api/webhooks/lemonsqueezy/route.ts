@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendPurchaseConfirmation } from "@/lib/email";
 import crypto from "crypto";
 
 export async function POST(request: NextRequest) {
@@ -130,6 +131,15 @@ export async function POST(request: NextRequest) {
       const magicUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login/verify?token=${token}`;
       console.log(`[LS] Magic link for ${customerEmail}: ${magicUrl}`);
 
+      // Send purchase confirmation email
+      const courseUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/${product.slug}/curso/lesson-1?lang=${customData.locale || "it"}&token=${token}`;
+      
+      try {
+        await sendPurchaseConfirmation(customerEmail, product.slug, courseUrl);
+      } catch (emailErr) {
+        console.error("[LS] Failed to send purchase confirmation email:", emailErr);
+      }
+
       // Track purchase analytics event
       await prisma.analyticEvent
         .create({
@@ -206,7 +216,6 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-    console.log("[LS Webhook] subscription_created:", data.id);
     console.log("[LS Webhook] subscription_created:", data.id);
     // Future: handle recurring subscriptions
   }

@@ -1,19 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import { getCourseConfig } from "@/lib/white-label-data";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const course = getCourseConfig(slug);
+
+  // Check access: user must be authenticated AND have purchased this product
+  const session = await getServerSession(authOptions);
+  const url = new URL(request.url);
+  const token = url.searchParams.get("token");
+
+  let hasAccess = false;
+
+  if (session?.user?.email) {
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        orders: {
+          where: {
+            product: { slug },
+            status: "completed",
+          },
+        },
+      },
+    });
+    if (user && user.orders.length > 0) {
+      hasAccess = true;
+    }
+  }
+
+  // Also allow access via valid magic link token
+  if (!hasAccess && token) {
+    const product = await prisma.product.findUnique({ where: { slug } });
+    if (product) {
+      const magic = await prisma.magicLink.findUnique({ where: { token } });
+      if (magic && magic.expiresAt > new Date() && magic.productId === product.id) {
+        hasAccess = true;
+      }
+    }
+  }
+
+  if (!hasAccess) {
+    return NextResponse.json(
+      { error: "Unauthorized — devi aver acquistato il corso per scaricare il PDF" },
+      { status: 401 }
+    );
+  }
+
+  const course = await getCourseConfig(slug);
 
   if (!course) {
     return NextResponse.json({ error: "Course not found" }, { status: 404 });
   }
 
-  const url = new URL(_request.url);
   const lang = (url.searchParams.get("lang") as "it" | "en") || "it";
   const content = course.languages[lang] || course.languages[course.defaultLanguage];
   if (!content) {

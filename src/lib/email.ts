@@ -121,6 +121,98 @@ export async function sendMagicLinkEmail(
   }
 }
 
+export async function sendAbandonedCheckoutEmail(
+  email: string,
+  productName: string,
+  checkoutUrl: string
+): Promise<boolean> {
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    console.log(`\n🛒 Checkout abbandonato per ${email}: ${productName} — Recupera: ${checkoutUrl}\n`);
+    return false;
+  }
+
+  const from = process.env.EMAIL_FROM || "noreply@courser.app";
+
+  try {
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: `⏳ Hai lasciato "${productName}" nel carrello?`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        </head>
+        <body style="margin:0;padding:0;background:#0a0a0c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0c;padding:40px 20px;">
+            <tr>
+              <td align="center">
+                <table width="480" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,rgba(23,23,26,0.95),rgba(10,10,12,0.98));border-radius:24px;padding:48px 40px;border:1px solid rgba(255,255,255,0.08);">
+                  <tr>
+                    <td align="center" style="padding-bottom:24px;">
+                      <div style="width:64px;height:64px;border-radius:50%;background:rgba(255,193,7,0.15);border:1px solid rgba(255,193,7,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto;">
+                        <span style="font-size:32px;">⏳</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding-bottom:8px;">
+                      <h1 style="color:#ffffff;font-size:24px;font-weight:900;margin:0;letter-spacing:-0.5px;">Non hai completato l&rsquo;acquisto</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding-bottom:32px;">
+                      <p style="color:#a0a0a0;font-size:14px;line-height:1.6;margin:0;">
+                        Hai lasciato <strong style="color:#e5e2e1;">"${productName}"</strong> nel carrello.
+                        <br/>Il tuo accesso è ancora disponibile — completa l&rsquo;acquisto per sbloccarlo.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding-bottom:24px;">
+                      <a href="${checkoutUrl}" style="display:inline-block;padding:16px 40px;border-radius:16px;background:linear-gradient(135deg,#ffc107,#f59e0b);color:#000000;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 4px 24px rgba(255,193,7,0.3);">
+                        Completa l&rsquo;Acquisto
+                      </a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="padding-bottom:24px;">
+                      <p style="color:#555;font-size:12px;line-height:1.5;margin:0;">
+                        Se hai già completato l&rsquo;acquisto, ignora questa email.
+                        <br/>© ${new Date().getFullYear()} Courser
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center">
+                      <div style="height:1px;width:100%;background:rgba(255,255,255,0.05);margin-bottom:16px;"></div>
+                      <p style="color:#444;font-size:11px;margin:0;">
+                        <span style="color:#f59e0b;">Courser</span> — Piattaforma di corsi digitali multilingua
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+      text: `Hai lasciato "${productName}" nel carrello?\n\nCompleta l'acquisto per sbloccare l'accesso:\n${checkoutUrl}\n\nSe hai già completato l'acquisto, ignora questa email.`,
+    });
+
+    console.log(`✅ Email recupero checkout inviata a ${email}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Errore invio recupero a ${email}:`, error);
+    return false;
+  }
+}
+
 export async function sendPurchaseConfirmation(
   email: string,
   productName: string,

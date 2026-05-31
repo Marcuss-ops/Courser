@@ -1,16 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Play, Loader2, Eye, Clock, ArrowRight } from "lucide-react";
+import { t } from "@/lib/player-locale";
 
 interface VideoPaywallProps {
   videoUrl: string;
   title: string;
   productSlug: string;
   isAuthenticated: boolean;
+  locale?: string;
   /** Seconds before showing the paywall overlay (default: 120 = 2 min) */
   previewDuration?: number;
+}
+
+// Fallback placeholder when no video URL is provided
+function VideoPlaceholder() {
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+      <div className="text-center">
+        <Play className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
+        <p className="text-zinc-600 text-sm font-medium">Video non disponibile</p>
+      </div>
+    </div>
+  );
 }
 
 export function VideoPaywall({
@@ -18,6 +32,7 @@ export function VideoPaywall({
   title,
   productSlug,
   isAuthenticated,
+  locale = "it",
   previewDuration = 120,
 }: VideoPaywallProps) {
   const router = useRouter();
@@ -52,7 +67,6 @@ export function VideoPaywall({
   }, [productSlug, isAuthenticated]);
 
   // Timer countdown — starts 3s after page load for preview duration
-
   useEffect(() => {
     if (hasAccess || checking) return;
 
@@ -91,15 +105,45 @@ export function VideoPaywall({
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
 
+  // If user has full access, show video directly — no paywall
+  if (hasAccess) {
+    return (
+      <div className="relative aspect-video w-full rounded-[2.5rem] overflow-hidden premium-glass border border-white/10 shadow-2xl">
+        {videoUrl ? (
+          <iframe
+            src={videoUrl}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <VideoPlaceholder />
+        )}
+      </div>
+    );
+  }
+
+  // Show preview with paywall overlay (only render iframe behind the overlay)
   return (
     <div className="relative aspect-video w-full rounded-[2.5rem] overflow-hidden premium-glass border border-white/10 shadow-2xl group">
-      {/* Background video - always visible */}
-      <iframe
-        src={videoUrl}
-        className="w-full h-full"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      />
+      {/* Loading state */}
+      {checking && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70">
+          <Loader2 className="w-8 h-8 animate-spin text-accent-primary" />
+        </div>
+      )}
+
+      {/* Video preview - only render if we have a URL and not checking access */}
+      {!checking && videoUrl ? (
+        <iframe
+          src={videoUrl}
+          className="w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      ) : !checking ? (
+        <VideoPlaceholder />
+      ) : null}
 
       {/* Gradient overlay (always present, heavier when paywall is active) */}
       <div
@@ -118,7 +162,7 @@ export function VideoPaywall({
         <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 premium-glass rounded-full border border-white/10 shadow-lg z-20">
           <Clock className="w-4 h-4 text-accent-primary" />
           <span className="text-xs font-black text-white uppercase tracking-wider">
-            Anteprima {minutes}:{seconds.toString().padStart(2, "0")}
+            {t(locale, "preview")} {minutes}:{seconds.toString().padStart(2, "0")}
           </span>
         </div>
       )}
@@ -135,12 +179,10 @@ export function VideoPaywall({
             {/* Messaggio */}
             <div className="space-y-3">
               <h3 className="text-2xl lg:text-3xl font-black text-white text-contrast tracking-tight">
-                Anteprima Terminata
+                {t(locale, "previewEnded")}
               </h3>
               <p className="text-zinc-400 text-sm lg:text-base font-medium leading-relaxed max-w-md mx-auto">
-                Hai visto i primi {previewDuration / 60} minuti di{" "}
-                <span className="text-white font-bold">&ldquo;{title}&rdquo;</span>.
-                Sblocca l&apos;intero corso con accesso completo a tutte le lezioni.
+                {t(locale, "previewDesc", { minutes: previewDuration / 60, title })}
               </p>
             </div>
 
@@ -151,7 +193,7 @@ export function VideoPaywall({
                 className="glow-btn px-8 py-4 rounded-2xl text-sm font-black text-white premium-glass flex items-center gap-2 group/btn w-full sm:w-auto justify-center"
               >
                 <Play className="w-4 h-4 fill-current" />
-                Acquista Ora
+                {t(locale, "buyNow")}
                 <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
               </a>
               <button
@@ -159,22 +201,15 @@ export function VideoPaywall({
                 className="px-8 py-4 premium-glass rounded-2xl text-sm font-black text-zinc-300 hover:text-white transition-all border border-white/5 flex items-center gap-2 w-full sm:w-auto justify-center"
               >
                 <Eye className="w-4 h-4" />
-                Ho Già Acquisto — Accedi
+                {t(locale, "alreadyBought")}
               </button>
             </div>
 
             {/* Trust badge */}
             <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest flex items-center justify-center gap-2">
-              <Lock className="w-3 h-3" /> Transazione sicura
+              <Lock className="w-3 h-3" /> {t(locale, "secureTransaction")}
             </p>
           </div>
-        </div>
-      )}
-
-      {/* Loading state */}
-      {checking && !hasAccess && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60">
-          <Loader2 className="w-8 h-8 animate-spin text-accent-primary" />
         </div>
       )}
     </div>

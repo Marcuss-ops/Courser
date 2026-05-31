@@ -5,6 +5,18 @@ import Link from "next/link";
 import { randomBytes } from "crypto";
 import { CheckCircle2, XCircle } from "lucide-react";
 
+async function getProductSlug(productId: string): Promise<string | null> {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { slug: true },
+    });
+    return product?.slug || null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function VerifyPage({
   searchParams,
 }: {
@@ -83,10 +95,15 @@ export default async function VerifyPage({
     path: "/",
   });
 
-  // ─── Redirect al corso ─────────────────────────────────────
+  // ─── Redirect al corso (usa lo slug, non l'ID) ────────────
   const targetProductId = productId || magicLink.productId;
   if (targetProductId) {
-    redirect(`/${targetProductId}?lang=it`);
+    const targetSlug = await getProductSlug(targetProductId);
+    if (targetSlug) {
+      redirect(`/${targetSlug}/curso/lesson-1?lang=it`);
+    }
+    // Fallback: redirect to login page if we can't resolve the slug
+    redirect(`/login?error=redirect_failed`);
   }
 
   // Fallback: mostra la pagina di successo

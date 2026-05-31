@@ -7,7 +7,7 @@ import {
   Zap,
   Globe
 } from "lucide-react";
-import { getCourseConfig } from "@/lib/white-label-data";
+import { getCourseConfig, type CourseConfig } from "@/lib/white-label-data";
 import { AnalyticsTracker } from "@/components/course/analytics-tracker";
 import { TrackedCtaButton } from "@/components/course/tracked-cta-button";
 
@@ -16,7 +16,7 @@ const TemplateLumio = dynamic(() => import("@/components/funnel/template-lumio")
 const TemplateH612 = dynamic(() => import("@/components/funnel/template-h612"));
 const TemplateHorizon = dynamic(() => import("@/components/funnel/template-horizon"));
 
-function getPriceString(data: NonNullable<ReturnType<typeof getCourseConfig>>, locale: string): string {
+function getPriceString(data: CourseConfig, locale: string): string {
   // Prezzo localizzato se disponibile
   const priceConfig = data.prices?.[locale] || data.prices?.default;
   if (priceConfig) {
@@ -26,7 +26,19 @@ function getPriceString(data: NonNullable<ReturnType<typeof getCourseConfig>>, l
   return `€${data.price || 0}`;
 }
 
-function mapConfigToTemplateData(data: NonNullable<ReturnType<typeof getCourseConfig>>, locale: string) {
+function getDisplayPriceForCurrency(data: CourseConfig): string {
+  // Mostra solo i prezzi effettivamente configurati
+  const eur = data.prices?.EUR;
+  const usd = data.prices?.USD;
+  const prices: string[] = [];
+  if (eur) prices.push(`${eur.symbol || '€'}${eur.amount}`);
+  if (usd) prices.push(`${usd.symbol || '$'}${usd.amount}`);
+  // Se nessuno configurato, mostra default
+  if (prices.length === 0) prices.push(`€${data.price || 0}`);
+  return prices.join(' / ');
+}
+
+function mapConfigToTemplateData(data: CourseConfig, locale: string) {
   const lang = locale || data.defaultLanguage || "it";
   const content = data.languages[lang] || data.languages[Object.keys(data.languages)[0]];
   if (!content) return null;
@@ -58,7 +70,7 @@ export default async function LandingPage({
   const searchParamsResolved = await searchParams;
   const { lang, verified_token, token } = searchParamsResolved;
   const accessToken = verified_token || token;
-  const data = getCourseConfig(domain);
+  const data = await getCourseConfig(domain);
 
   if (!data) return notFound();
 
@@ -213,7 +225,7 @@ export default async function LandingPage({
 
               <div className="pt-6">
                  <div className="text-5xl font-black text-white mb-8 tracking-tighter">
-                    {displayPrice}
+                    {data.prices?.EUR || data.prices?.USD ? getDisplayPriceForCurrency(data) : displayPrice}
                     <span className="text-sm text-zinc-600 font-bold ml-2 uppercase tracking-widest">{currentLang === 'en' ? 'One-Time Payment' : 'Pagamento Unico'}</span>
                  </div>
                  <a 

@@ -11,6 +11,8 @@ const FUNNEL_STEPS = [
   "lesson_complete",
 ] as const;
 
+const FUNNEL_STEP_VALUES: string[] = [...FUNNEL_STEPS];
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
@@ -23,25 +25,35 @@ export async function GET(request: NextRequest) {
       ...(productId ? { productId } : {}),
     };
 
-    // 1. Funnel step counts (unique visitors per step)
-    const funnelSteps: { step: string; uniqueVisitors: number; totalEvents: number }[] = [];
+    // OPTIMIZED: Single query instead of N+1 — fetch all events at once
+    const allEvents = await prisma.analyticEvent.findMany({
+      where: { ...baseWhere, eventType: { in: FUNNEL_STEP_VALUES } },
+      select: { eventType: true, sessionId: true, metadata: true, createdAt: true },
+    });
 
+    // 1. Funnel step counts — compute from single query results
+    const stepBuckets: Record<string, { sessionIds: Set<string | null>; total: number }> = {};
     for (const step of FUNNEL_STEPS) {
-      const events = await prisma.analyticEvent.findMany({
-        where: { ...baseWhere, eventType: step },
-        select: { sessionId: true },
-      });
-
-      const uniqueVisitors = new Set(events.filter((e) => e.sessionId).map((e) => e.sessionId)).size;
-      // Fallback: count events without sessionId as unique
-      const noSessionCount = events.filter((e) => !e.sessionId).length;
-
-      funnelSteps.push({
-        step,
-        uniqueVisitors: uniqueVisitors || noSessionCount,
-        totalEvents: events.length,
-      });
+      stepBuckets[step] = { sessionIds: new Set(), total: 0 };
     }
+
+    for (const event of allEvents) {
+      const bucket = stepBuckets[event.eventType];
+      if (bucket) {
+        bucket.total++;
+        bucket.sessionIds.add(event.sessionId);
+      }
+    }
+
+    const funnelSteps = FUNNEL_STEPS.map((step) => {
+      const bucket = stepBuckets[step];
+      const uniqueVisitors = bucket.sessionIds.size || bucket.total;
+      return {
+        step,
+        uniqueVisitors,
+        totalEvents: bucket.total,
+      };
+    });
 
     // 2. Drop-off rates between steps
     const dropoffs = funnelSteps.map((step, i) => {
@@ -53,18 +65,14 @@ export async function GET(request: NextRequest) {
       return { step: step.step, dropoffRate, conversionFromPrev };
     });
 
-    // 3. Top referrers
-    const referrerEvents = await prisma.analyticEvent.findMany({
-      where: { ...baseWhere, eventType: "pageview", sessionId: { not: null } },
-      select: { metadata: true },
-    });
-
+    // 3. Top referrers — from pageview events only
     const referrerCounts: Record<string, number> = {};
-    for (const e of referrerEvents) {
+    for (const e of allEvents) {
+      if (e.eventType !== "pageview") continue;
       try {
-        const meta = JSON.parse(e.metadata || "{}");
+        const meta = typeof e.metadata === "string" ? JSON.parse(e.metadata) : (e.metadata || {});
         const ref = meta.referrer || "direct";
-        const domain = ref ? new URL(ref).hostname : "direct";
+        const domain = ref !== "direct" && ref ? new URL(ref).hostname : "direct";
         referrerCounts[domain] = (referrerCounts[domain] || 0) + 1;
       } catch {
         referrerCounts["direct"] = (referrerCounts["direct"] || 0) + 1;
@@ -76,31 +84,22 @@ export async function GET(request: NextRequest) {
       .slice(0, 10)
       .map(([source, count]) => ({ source, count }));
 
-    // 4. UTM campaign performance
-    const utmEvents = await prisma.analyticEvent.findMany({
-      where: { ...baseWhere, eventType: "pageview", sessionId: { not: null } },
-      select: { metadata: true, sessionId: true },
-    });
-
-    const campaignStats: Record<string, { visitors: Set<string>; purchases: number }> = {};
-    for (const e of utmEvents) {
+    // 4. UTM campaign performance — from pageview events
+    const campaignStats: Record<string, { visitors: Set<string | null>; purchases: number }> = {};
+    for (const e of allEvents) {
       try {
-        const meta = JSON.parse(e.metadata || "{}");
+        const meta = typeof e.metadata === "string" ? JSON.parse(e.metadata) : (e.metadata || {});
         const campaign = meta.utm_campaign || "organic";
         if (!campaignStats[campaign]) campaignStats[campaign] = { visitors: new Set(), purchases: 0 };
         if (e.sessionId) campaignStats[campaign].visitors.add(e.sessionId);
-      } catch { /* skip */ }
+      } catch { /* skip malformed metadata */ }
     }
 
     // Count purchases per campaign
-    const purchaseEvents = await prisma.analyticEvent.findMany({
-      where: { ...baseWhere, eventType: "purchase", sessionId: { not: null } },
-      select: { metadata: true, sessionId: true },
-    });
-
-    for (const e of purchaseEvents) {
+    for (const e of allEvents) {
+      if (e.eventType !== "purchase") continue;
       try {
-        const meta = JSON.parse(e.metadata || "{}");
+        const meta = typeof e.metadata === "string" ? JSON.parse(e.metadata) : (e.metadata || {});
         const campaign = meta.utm_campaign || "organic";
         if (!campaignStats[campaign]) campaignStats[campaign] = { visitors: new Set(), purchases: 0 };
         campaignStats[campaign].purchases++;
@@ -117,23 +116,8 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.visitors - a.visitors);
 
     // 5. Visitor journey (last 20 unique sessions with their event sequence)
-    const recentSessions = await prisma.analyticEvent.findMany({
-      where: {
-        ...baseWhere,
-        sessionId: { not: null },
-      },
-      orderBy: { createdAt: "asc" },
-      select: {
-        sessionId: true,
-        eventType: true,
-        createdAt: true,
-        metadata: true,
-      },
-      take: 500,
-    });
-
     const sessionJourneys: Record<string, { events: string[]; firstSeen: Date; lastSeen: Date; converted: boolean }> = {};
-    for (const e of recentSessions) {
+    for (const e of allEvents) {
       if (!e.sessionId) continue;
       if (!sessionJourneys[e.sessionId]) {
         sessionJourneys[e.sessionId] = {
@@ -145,7 +129,8 @@ export async function GET(request: NextRequest) {
       }
       const journey = sessionJourneys[e.sessionId];
       journey.events.push(e.eventType);
-      journey.lastSeen = e.createdAt;
+      if (e.createdAt > journey.lastSeen) journey.lastSeen = e.createdAt;
+      if (e.createdAt < journey.firstSeen) journey.firstSeen = e.createdAt;
       if (e.eventType === "purchase") journey.converted = true;
     }
 

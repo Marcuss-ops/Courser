@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TemplateSelector from "@/components/admin/template-selector";
+import { ImageUpload } from "@/components/admin/image-upload";
 import type { TemplateId } from "@/components/funnel";
 import { 
   ArrowLeft, 
@@ -12,8 +13,11 @@ import {
   Save, 
   Image as ImageIcon,
   Plus,
-  Trash2
+  Trash2,
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
+import { CurrencyPricesSection } from "@/components/admin/currency-prices";
 
 const FUNNEL_SECTIONS = [
   { key: "titolo", label: "Titolo del Prodotto", placeholder: "Es: Corso Completo di Fotografia" },
@@ -30,6 +34,9 @@ export default function NewProductPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [translationsByLocale, setTranslationsByLocale] = useState<Record<string, Record<string, string>>>({});
+  const [translatedLocales, setTranslatedLocales] = useState<string[]>([]);
+  const [pricesByCurrency, setPricesByCurrency] = useState<Record<string, { price: number; lemonVariantId?: string | null; stripePriceId?: string | null }>>({});
 
   // Form state
   const [slug, setSlug] = useState("");
@@ -88,8 +95,11 @@ export default function NewProductPage() {
         }),
       });
       const data = await res.json();
-      console.log("Traduzioni:", data);
-      alert("Traduzioni generate! Controlla la console.");
+      if (data.translations) {
+        setTranslationsByLocale(data.translations);
+        const locales = Object.keys(data.translations).filter(l => l !== "it");
+        setTranslatedLocales(locales);
+      }
     } catch {
       alert("Errore nella traduzione");
     } finally {
@@ -107,6 +117,8 @@ export default function NewProductPage() {
           price: parseInt(price),
           coverUrl: coverPreview,
           translations: texts,
+          translationsByLocale,
+          pricesByCurrency: Object.keys(pricesByCurrency).length > 0 ? pricesByCurrency : undefined,
           lessons,
           sourceLocale: "it",
           templateId: selectedTemplate,
@@ -187,44 +199,17 @@ export default function NewProductPage() {
                 <h2>Immagine di Copertina</h2>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-8">
-                <div className="flex h-64 w-44 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-zinc-700 bg-zinc-900/50 transition hover:border-zinc-500 group relative">
-                  {coverPreview ? (
-                    <>
-                      <img src={coverPreview} alt="Copertina" className="h-full w-full object-cover" />
-                      <button 
-                        onClick={() => setCoverPreview(null)}
-                        className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </>
-                  ) : (
-                    <div className="text-center px-4">
-                      <Plus className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                      <span className="text-xs text-zinc-500">PNG/JPG 2:3 (600x900)</span>
-                    </div>
-                  )}
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => setCoverPreview(ev.target?.result as string);
-                        reader.readAsDataURL(file);
-                      }
-                    }} 
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                  />
-                </div>
+                <ImageUpload
+                  value={coverPreview}
+                  onChange={(url) => setCoverPreview(url)}
+                />
                 <div className="flex-1 space-y-4 text-center sm:text-left">
                   <p className="text-sm text-zinc-400">
-                    Questa immagine verrà mostrata nella parte superiore del funnel e nelle anteprime social.
+                    L&apos;immagine verrà caricata su cloud (Supabase Storage) e mostrata nel funnel e nelle anteprime social.
                   </p>
-                  <button className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-xl text-sm border border-zinc-700 hover:bg-zinc-700 transition-colors">
-                    Sfoglia file...
-                  </button>
+                  <p className="text-[10px] text-zinc-600 font-medium">
+                    PNG, JPEG, WebP o AVIF — max 5 MB
+                  </p>
                 </div>
               </div>
             </section>
@@ -299,12 +284,12 @@ export default function NewProductPage() {
             </section>
 
             {/* Prezzo */}
-            <section className="glass-card p-8 rounded-3xl flex items-center justify-between">
-              <div className="space-y-1">
-                <h2 className="text-white font-semibold">Prezzo del Prodotto</h2>
-                <p className="text-xs text-zinc-500">Inposta il costo finale in Euro</p>
-              </div>
-              <div className="flex items-center gap-4">
+            <section className="glass-card p-8 rounded-3xl space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h2 className="text-white font-semibold">Prezzo del Prodotto</h2>
+                  <p className="text-xs text-zinc-500">Inposta il costo finale in Euro (default)</p>
+                </div>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">€</span>
                   <input
@@ -315,6 +300,11 @@ export default function NewProductPage() {
                   />
                 </div>
               </div>
+              <CurrencyPricesSection
+                pricesByCurrency={pricesByCurrency}
+                onChange={setPricesByCurrency}
+                showOptionalLabel
+              />
             </section>
 
             {/* Actions */}
@@ -326,13 +316,27 @@ export default function NewProductPage() {
                 Continua all&apos;AI <ArrowRight className="w-4 h-4" />
               </button>
               <div className="flex gap-4">
-                <button
-                  onClick={handleTranslate}
-                  disabled={isTranslating}
-                  className="px-6 py-4 bg-zinc-800 text-zinc-300 rounded-2xl text-sm font-semibold border border-zinc-700 hover:bg-zinc-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  <Languages className="w-4 h-4" /> Traduci
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleTranslate}
+                    disabled={isTranslating}
+                    className="px-6 py-4 bg-zinc-800 text-zinc-300 rounded-2xl text-sm font-semibold border border-zinc-700 hover:bg-zinc-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isTranslating ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Traducendo…</>
+                    ) : (
+                      <><Languages className="w-4 h-4" /> Traduci (EN, ES, FR, DE, PT)</>
+                    )}
+                  </button>
+                  {translatedLocales.length > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-xl">
+                      <CheckCircle2 className="w-4 h-4 text-green-400" />
+                      <span className="text-xs text-green-400 font-medium">
+                        {translatedLocales.map(l => l.toUpperCase()).join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={handleSave}
                   className="px-6 py-4 bg-zinc-800 text-zinc-300 rounded-2xl text-sm font-semibold border border-zinc-700 hover:bg-zinc-700 transition-colors flex items-center gap-2"
@@ -440,6 +444,7 @@ export default function NewProductPage() {
     </div>
   );
 }
+
 
 function Check({ className }: { className?: string }) {
   return (
