@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { eventType, productId, metadata, userId } = body;
+    const { eventType, productId, metadata, userId, sessionId } = body;
 
     if (!eventType) {
       return NextResponse.json({ error: "Missing eventType" }, { status: 400 });
@@ -13,8 +13,38 @@ export async function POST(request: NextRequest) {
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const userAgent = request.headers.get("user-agent") || "";
 
+    let resolvedSessionId: string | null = null;
+
+    // Create or update visitor session
+    if (sessionId) {
+      const existing = await prisma.visitorSession.findUnique({ where: { id: sessionId } });
+      if (existing) {
+        await prisma.visitorSession.update({
+          where: { id: sessionId },
+          data: { lastSeenAt: new Date() },
+        });
+        resolvedSessionId = sessionId;
+      } else {
+        // Parse UTM from metadata if present
+        const meta = metadata ? (typeof metadata === "string" ? JSON.parse(metadata) : metadata) : {};
+        const created = await prisma.visitorSession.create({
+          data: {
+            id: sessionId,
+            ip,
+            userAgent,
+            referrer: meta.referrer || "",
+            utmSource: meta.utm_source || "",
+            utmCampaign: meta.utm_campaign || "",
+            utmMedium: meta.utm_medium || "",
+          },
+        });
+        resolvedSessionId = created.id;
+      }
+    }
+
     const event = await prisma.analyticEvent.create({
       data: {
+        sessionId: resolvedSessionId,
         eventType,
         productId: productId || null,
         metadata: metadata ? JSON.stringify(metadata) : null,

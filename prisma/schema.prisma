@@ -151,13 +151,32 @@ model LessonProgress {
 // ─── Analytics Eventi ───────────────────────────────────────
 model AnalyticEvent {
   id        String   @id @default(cuid())
+  sessionId String?  // ID unico del visitatore (cookie-based)
   productId String?
-  eventType String   // pageview | click_buy | checkout_start | purchase | lesson_complete
+  eventType String   // pageview | scroll_deep | click_buy | checkout_open | checkout_complete | purchase | lesson_start | lesson_complete
   metadata  String?  // JSON string with extra data
   userId    String?
   ip        String?
   userAgent String?
   createdAt DateTime @default(now())
+
+  visitor   VisitorSession? @relation(fields: [sessionId], references: [id])
+}
+
+// ─── Sessioni Visitatore (per funnel tracking) ──────────────
+model VisitorSession {
+  id          String   @id @default(cuid())
+  ip          String?
+  userAgent   String?
+  referrer    String?
+  utmSource   String?
+  utmCampaign String?
+  utmMedium   String?
+  country     String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  events      AnalyticEvent[]
 }
 
 // ─── Magic Links ────────────────────────────────────────────

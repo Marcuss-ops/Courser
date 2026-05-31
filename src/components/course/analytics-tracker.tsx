@@ -1,53 +1,90 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { getVisitorId, parseUtmParams, getReferrer } from "@/lib/visitor-session";
 
 interface AnalyticsTrackerProps {
   productSlug: string;
 }
 
+function sendEvent(eventType: string, productSlug: string, extra?: Record<string, unknown>) {
+  const sessionId = getVisitorId();
+  const utm = parseUtmParams();
+  const referrer = getReferrer();
+
+  fetch("/api/analytics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      eventType,
+      sessionId,
+      productId: productSlug,
+      metadata: {
+        ...extra,
+        url: window.location.href,
+        referrer,
+        ...utm,
+      },
+    }),
+  }).catch(() => {});
+}
+
 export function usePageViewTracking(productSlug: string) {
+  const tracked = useRef(false);
+
+  useEffect(() => {
+    if (!productSlug || tracked.current) return;
+    tracked.current = true;
+    sendEvent("pageview", productSlug);
+  }, [productSlug]);
+}
+
+export function useScrollTracking(productSlug: string) {
+  const milestones = useRef(new Set<string>());
+
   useEffect(() => {
     if (!productSlug) return;
-    // Track pageview on mount
-    fetch("/api/analytics", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventType: "pageview",
-        productId: productSlug,
-        metadata: { url: window.location.href, referrer: document.referrer },
-      }),
-    }).catch(() => {});
+
+    const handleScroll = () => {
+      const scrollPct = Math.round(
+        (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100
+      );
+
+      for (const threshold of [25, 50, 75, 90]) {
+        if (scrollPct >= threshold && !milestones.current.has(String(threshold))) {
+          milestones.current.add(String(threshold));
+          sendEvent("scroll_deep", productSlug, { scrollPercent: threshold });
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [productSlug]);
 }
 
 export function trackClickBuy(productSlug: string, extra?: Record<string, unknown>) {
-  fetch("/api/analytics", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      eventType: "click_buy",
-      productId: productSlug,
-      metadata: { ...extra, url: window.location.href },
-    }),
-  }).catch(() => {});
+  sendEvent("click_buy", productSlug, extra);
+}
+
+export function trackCheckoutOpen(productSlug: string, extra?: Record<string, unknown>) {
+  sendEvent("checkout_open", productSlug, extra);
+}
+
+export function trackCheckoutComplete(productSlug: string, extra?: Record<string, unknown>) {
+  sendEvent("checkout_complete", productSlug, extra);
+}
+
+export function trackLessonStart(productSlug: string, lessonId: string) {
+  sendEvent("lesson_start", productSlug, { lessonId });
 }
 
 export function trackLessonComplete(productSlug: string, lessonId: string) {
-  fetch("/api/analytics", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      eventType: "lesson_complete",
-      productId: productSlug,
-      metadata: { lessonId },
-    }),
-  }).catch(() => {});
+  sendEvent("lesson_complete", productSlug, { lessonId });
 }
 
-// Invisible component that tracks pageview on mount
 export function AnalyticsTracker({ productSlug }: AnalyticsTrackerProps) {
   usePageViewTracking(productSlug);
+  useScrollTracking(productSlug);
   return null;
 }

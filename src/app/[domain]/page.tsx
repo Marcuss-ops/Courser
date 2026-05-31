@@ -129,10 +129,12 @@ export default async function LandingPage({
               <p className="max-w-2xl mx-auto text-zinc-400 text-lg lg:text-xl font-medium leading-relaxed">
                  {content.description}
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
+               <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
                  <TrackedCtaButton 
                    href={checkoutUrl}
                    productSlug={domain}
+                   productId={data.productId}
+                   locale={currentLang}
                    className="glow-btn px-10 py-5 rounded-3xl text-sm font-black text-white flex items-center gap-3 group"
                  >
                    {content.cta}

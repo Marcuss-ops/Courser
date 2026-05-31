@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TemplateSelector from "@/components/admin/template-selector";
+import FunnelVisualization from "@/components/admin/funnel-visualization";
 import type { TemplateId } from "@/components/funnel";
 import { DASHBOARD_DATA } from "@/lib/dashboard-data";
 import { 
@@ -23,7 +24,8 @@ import {
   Archive,
   BarChart2,
   MoreVertical,
-  Loader2
+  Loader2,
+  Filter
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -33,6 +35,7 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"overview" | "funnel">("overview");
 
   useEffect(() => {
     async function fetchData() {
@@ -121,6 +124,34 @@ export default function AdminDashboard() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 lg:px-10 py-4 space-y-10 custom-scrollbar pb-12">
+        {/* View Mode Tabs */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode("overview")}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              viewMode === "overview"
+                ? "bg-accent-primary text-white shadow-lg shadow-accent-primary/20"
+                : "premium-glass text-zinc-400 hover:text-white"
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5 inline mr-1.5" />
+            Overview
+          </button>
+          <button
+            onClick={() => setViewMode("funnel")}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              viewMode === "funnel"
+                ? "bg-accent-primary text-white shadow-lg shadow-accent-primary/20"
+                : "premium-glass text-zinc-400 hover:text-white"
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5 inline mr-1.5" />
+            Funnel Analysis
+          </button>
+        </div>
+
+        {viewMode === "overview" ? (
+        <>
         {/* Stats Summary Cards */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           <StatCard 
@@ -363,6 +394,10 @@ export default function AdminDashboard() {
             <TrendingUp className="absolute bottom-8 right-8 w-12 h-12 text-white/5 group-hover:text-accent-primary/10 transition-colors" />
           </div>
         </section>
+        </>
+        ) : (
+        <FunnelVisualization />
+        )}
       </div>
 
       {showSelector && (

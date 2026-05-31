@@ -4,6 +4,7 @@ import { prisma } from "./prisma";
 
 export interface CourseConfig {
   slug: string;
+  productId: string;
   template: "lumio" | "h612" | "horizon";
   defaultLanguage: string;
   cover: string;
@@ -99,6 +100,7 @@ export async function generateCourseConfig(slug: string) {
 
   const config: CourseConfig = {
     slug: product.slug,
+    productId: product.id,
     template: (product.templateId as "lumio" | "h612" | "horizon") || "lumio",
     defaultLanguage: "it",
     cover: product.coverUrl || "/placeholder-cover.jpg",
