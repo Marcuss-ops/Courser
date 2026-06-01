@@ -43,6 +43,12 @@ export function VideoPaywall({
   const [showOverlay, setShowOverlay] = useState(false);
   const [checking, setChecking] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const previewDurationRef = useRef(previewDuration);
+
+  // Keep ref in sync without re-running the timer effect
+  useEffect(() => {
+    previewDurationRef.current = previewDuration;
+  }, [previewDuration]);
 
   // Check access via API
   useEffect(() => {
@@ -75,7 +81,7 @@ export function VideoPaywall({
         timerRef.current = setInterval(() => {
           setTimeElapsed((prev) => {
             const next = prev + 1;
-            if (next >= previewDuration) {
+            if (next >= previewDurationRef.current) {
               setShowOverlay(true);
               if (timerRef.current) clearInterval(timerRef.current);
             }
@@ -92,7 +98,7 @@ export function VideoPaywall({
         timerRef.current = null;
       }
     };
-  }, [hasAccess, checking, previewDuration]);
+  }, [hasAccess, checking]);
 
   // Cleanup timer on unmount
   useEffect(() => {

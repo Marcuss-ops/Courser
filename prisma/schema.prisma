@@ -9,19 +9,19 @@ datasource db {
 
 // ─── Prodotti (Libri / Corsi) ───────────────────────────────
 model Product {
-  id            String   @id @default(cuid())
-  slug          String   @unique
-  coverUrl      String?  // URL immagine copertina PNG
-  templateId    String   @default("lumio") // lumio | h612 | horizon
-  stripePriceId String?  // ID prezzo Stripe (legacy)
-  lemonVariantId String? // ID variante Lemon Squeezy
-  lemonStoreId  String?  // Store ID Lemon Squeezy (opzionale, per override)
-  price         Int      @default(0) // in centesimi
-  currency      String   @default("eur")
-  status        String   @default("draft") // draft | published | archived
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  coverUrl         String? // URL immagine copertina PNG
+  templateId       String   @default("lumio") // lumio | h612 | horizon
+  stripePriceId    String? // ID prezzo Stripe (legacy)
+  lemonVariantId   String? // ID variante Lemon Squeezy
+  lemonStoreId     String? // Store ID Lemon Squeezy (opzionale, per override)
+  price            Int      @default(0) // in centesimi
+  currency         String   @default("eur")
+  status           String   @default("draft") // draft | published | archived
   pricesByCurrency String? // JSON: { "USD": { "price": 5500, "symbol": "$", "stripePriceId": "...", "lemonVariantId": "..." }, ... }
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   translations       ProductTranslation[]
   lessons            Lesson[]
@@ -31,13 +31,13 @@ model Product {
 
 // ─── Traduzioni del Funnel (Problema, Storia, Recensioni, CTA) ─
 model ProductTranslation {
-  id        String  @id @default(cuid())
+  id        String @id @default(cuid())
   productId String
-  locale    String  // it, en, es, fr, de...
-  section   String  // problema | storia | recensioni | cta | titolo | sottotitolo
-  content   String  // Testo della sezione in quella lingua
+  locale    String // it, en, es, fr, de...
+  section   String // problema | storia | recensioni | cta | titolo | sottotitolo
+  content   String // Testo della sezione in quella lingua
 
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, locale, section])
 }
@@ -46,12 +46,14 @@ model ProductTranslation {
 model Lesson {
   id        String   @id @default(cuid())
   productId String
-  position  Int      // ordine lezione (1, 2, 3...)
+  position  Int // ordine lezione (1, 2, 3...)
   createdAt DateTime @default(now())
 
-  product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
   translations LessonTranslation[]
   progress     LessonProgress[]
+  notes        LessonNote[]
+  assets       LessonAsset[]
 }
 
 model LessonTranslation {
@@ -62,7 +64,7 @@ model LessonTranslation {
   videoUrl    String? // URL YouTube "non in elenco" per quella lingua
   description String?
 
-  lesson      Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([lessonId, locale])
 }
@@ -74,10 +76,10 @@ model Order {
   productId       String
   paymentProvider String   @default("stripe") // stripe | lemonsqueezy
   stripeSessionId String?  @unique // Stripe session ID (legacy)
-  providerOrderId String?  // Order ID dal provider (Lemon Squeezy order ID)
-  amount          Int      // in centesimi
+  providerOrderId String? // Order ID dal provider (Lemon Squeezy order ID)
+  amount          Int // in centesimi
   currency        String
-  locale          String?  // lingua al momento dell'acquisto
+  locale          String? // lingua al momento dell'acquisto
   status          String   @default("pending") // pending | completed | refunded
   createdAt       DateTime @default(now())
 
@@ -140,13 +142,13 @@ model VerificationToken {
 
 // ─── Progressi Lezioni ──────────────────────────────────────
 model LessonProgress {
-  id          String   @id @default(cuid())
-  userId      String
-  lessonId    String
-  completed   Boolean  @default(false)
-  completedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String    @id @default(cuid())
+  userId        String
+  lessonId      String
+  completed     Boolean   @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   lastWatchedAt DateTime? // ultima visualizzazione lezione
 
   lesson Lesson @relation(fields: [lessonId], references: [id])
@@ -163,6 +165,8 @@ model LessonNote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
   @@unique([userId, lessonId])
 }
 
@@ -170,26 +174,28 @@ model LessonNote {
 model LessonAsset {
   id        String   @id @default(cuid())
   lessonId  String
-  type      String   // pdf | audio | resource
+  type      String // pdf | audio | resource
   locale    String   @default("it") // lingua dell'asset
   fileUrl   String
   fileName  String?
   createdAt DateTime @default(now())
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 }
 
 // ─── Analytics Eventi ───────────────────────────────────────
 model AnalyticEvent {
   id        String   @id @default(cuid())
-  sessionId String?  // ID unico del visitatore (cookie-based)
+  sessionId String? // ID unico del visitatore (cookie-based)
   productId String?
-  eventType String   // pageview | scroll_deep | click_buy | checkout_open | checkout_complete | purchase | lesson_start | lesson_complete
-  metadata  String?  // JSON string with extra data
+  eventType String // pageview | scroll_deep | click_buy | checkout_open | checkout_complete | purchase | lesson_start | lesson_complete
+  metadata  String? // JSON string with extra data
   userId    String?
   ip        String?
   userAgent String?
   createdAt DateTime @default(now())
 
-  visitor   VisitorSession? @relation(fields: [sessionId], references: [id])
+  visitor VisitorSession? @relation(fields: [sessionId], references: [id])
 }
 
 // ─── Sessioni Visitatore (per funnel tracking) ──────────────
@@ -205,14 +211,14 @@ model VisitorSession {
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
 
-  events      AnalyticEvent[]
+  events AnalyticEvent[]
 }
 
 // ─── Cache Config (per Vercel — evita scrittura su disco) ───
 model CourseConfigCache {
   id        String   @id @default(cuid())
   slug      String   @unique
-  config    String   // JSON string del CourseConfig completo
+  config    String // JSON string del CourseConfig completo
   version   Int      @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,18 +226,18 @@ model CourseConfigCache {
 
 // ─── Checkout abbandonati (per email di recupero) ─────────
 model AbandonedCheckout {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   email           String
   productId       String
-  locale          String   @default("it")
-  paymentProvider String   // stripe | lemonsqueezy
-  checkoutUrl     String?  // URL del checkout esterno
-  status          String   @default("pending") // pending | recovered | expired
+  locale          String    @default("it")
+  paymentProvider String // stripe | lemonsqueezy
+  checkoutUrl     String? // URL del checkout esterno
+  status          String    @default("pending") // pending | recovered | expired
   reminderSentAt  DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 // ─── Magic Links ────────────────────────────────────────────

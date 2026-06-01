@@ -312,7 +312,16 @@ async function ContinueAndCertificatesSection({
   const lastWatch = await prisma.lessonProgress.findFirst({
     where: { userId, lastWatchedAt: { not: null } },
     orderBy: { lastWatchedAt: "desc" },
-    include: { lesson: { include: { translations: { take: 1, select: { title: true } }, product: { select: { slug: true } } } } },
+    include: {
+      lesson: {
+        select: {
+          id: true,
+          position: true,
+          product: { select: { slug: true, defaultLanguage: true } },
+          translations: { take: 1, select: { title: true, locale: true } },
+        },
+      },
+    },
   });
 
   // Calcola progresso per prodotto
@@ -332,6 +341,9 @@ async function ContinueAndCertificatesSection({
 
   const allCompleted = productProgress.filter(p => p.total > 0 && p.completed >= p.total);
   const lastLessonTitle = lastWatch?.lesson?.translations?.[0]?.title;
+  const resumeLocale = lastWatch?.lesson?.translations?.[0]?.locale || lastWatch?.lesson?.product?.defaultLanguage || "it";
+  const resumeSlug = lastWatch?.lesson?.product?.slug;
+  const resumePosition = lastWatch?.lesson?.position;
 
   return (
     <section className="space-y-8">
@@ -355,7 +367,7 @@ async function ContinueAndCertificatesSection({
               La costanza è la chiave del successo. Dedica anche solo 15 minuti al giorno e vedrai risultati straordinari.
             </p>
             <Link
-              href={`/${lastWatch.lesson.product.slug}/curso/lesson-${lastWatch.lesson.position}?lang=it`}
+              href={resumeSlug && resumePosition ? `/${resumeSlug}/curso/lesson-${resumePosition}?lang=${resumeLocale}` : "/dashboard"}
               className="inline-flex items-center gap-2 glow-btn px-8 py-4 rounded-2xl text-sm font-bold text-white premium-glass"
             >
               <Play className="w-4 h-4" />

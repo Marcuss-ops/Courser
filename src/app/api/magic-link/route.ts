@@ -11,12 +11,8 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Email non valida" }, { status: 400 });
     }
-    
+
     const { email, productId } = parsed.data;
-    
-    if (!email) {
-      return NextResponse.json({ error: "Email non valida" }, { status: 400 });
-    }
 
     // Check if user has order for this product
     let hasAccess = false;

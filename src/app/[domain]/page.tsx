@@ -133,10 +133,20 @@ export default async function LandingPage({
                  New: {content.title}
               </div>
               <h1 className="text-5xl lg:text-8xl font-black text-white text-contrast tracking-tighter leading-[0.9]">
-                 {content.title.split(':').slice(0, 1)} <br/>
-                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary">
-                   {content.title.split(':').slice(1)}
-                 </span>
+                 {(() => {
+                   const parts = content.title.split(":");
+                   return parts.length > 1 ? (
+                     <>
+                       {parts[0]}
+                       <br />
+                       <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-tertiary">
+                         {parts.slice(1).join(":").trim()}
+                       </span>
+                     </>
+                   ) : (
+                     content.title
+                   );
+                 })()}
               </h1>
               <p className="max-w-2xl mx-auto text-zinc-400 text-lg lg:text-xl font-medium leading-relaxed">
                  {content.description}

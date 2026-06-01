@@ -4,11 +4,12 @@ import { prisma } from "./prisma";
 import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
 
-// Warn if NEXTAUTH_SECRET is the default dev value
+// Warn if NEXTAUTH_SECRET is the default dev value (skip during build to keep logs clean)
 if (
-  !process.env.NEXTAUTH_SECRET ||
-  process.env.NEXTAUTH_SECRET === "dev-secret-change-in-production-1234567890" ||
-  process.env.NEXTAUTH_SECRET === "change-me-to-a-random-secret"
+  process.env.NEXT_PHASE !== "phase-production-build" &&
+  (!process.env.NEXTAUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET === "dev-secret-change-in-production-1234567890" ||
+    process.env.NEXTAUTH_SECRET === "change-me-to-a-random-secret")
 ) {
   console.warn(
     "⚠️  NEXTAUTH_SECRET non configurato o è quello di default! " +
